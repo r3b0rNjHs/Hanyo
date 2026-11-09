@@ -21,9 +21,16 @@ export class PageService {
     const ctx = this.library.chapterContext(chapterId);
     if (!ctx) return null;
     const urls = await this.upstreamUrls(chapterId);
+    const basics = this.library.seriesBasics(ctx.link.series_id);
     return {
       chapterId,
       seriesId: ctx.link.series_id,
+      seriesTitle: basics.title,
+      genres: basics.genres,
+      chapterNumber: ctx.chapter.number,
+      chapterTitle: ctx.chapter.title,
+      sourceName: ctx.link.source_name,
+      resumePage: basics.resume?.chapterId === chapterId ? basics.resume.page : null,
       pages: urls.map((_, i) => `/api/chapters/${chapterId}/pages/${i}`),
       prevChapterId: ctx.prevId,
       nextChapterId: ctx.nextId,

@@ -46,8 +46,8 @@ root.route("/", api);
 const webDir = process.env.WEB_DIR;
 if (webDir && fs.existsSync(webDir)) {
   root.use("/*", serveStatic({ root: path.relative(process.cwd(), webDir) }));
-  const index = fs.readFileSync(path.join(webDir, "index.html"), "utf8");
-  root.get("*", (c) => c.html(index));
+  // Read per request so a rebuilt web app is picked up without restarting the API.
+  root.get("*", (c) => c.html(fs.readFileSync(path.join(webDir, "index.html"), "utf8")));
 }
 
 updates.start(config.updateIntervalMin);

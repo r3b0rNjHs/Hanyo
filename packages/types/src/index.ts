@@ -57,6 +57,8 @@ export interface SeriesSummary {
   unreadCount: number;
   latestChapter: number | null;
   lastReadChapter: number | null;
+  /** First unread chapter that actually exists (sources often have gaps). */
+  nextChapter: number | null;
   updatedAt: number;
 }
 
@@ -93,6 +95,13 @@ export interface ResumePoint {
 export interface ChapterPages {
   chapterId: number;
   seriesId: number;
+  seriesTitle: string;
+  genres: string[];
+  chapterNumber: number | null;
+  chapterTitle: string | null;
+  sourceName: string;
+  /** Page index to resume at when this chapter is the series' resume point. */
+  resumePage: number | null;
   /** Same-origin URLs (/api/chapters/:id/pages/:n). Stable, so they can be cached offline. */
   pages: string[];
   prevChapterId: number | null;

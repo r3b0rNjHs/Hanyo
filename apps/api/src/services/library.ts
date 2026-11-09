@@ -366,6 +366,12 @@ export class LibraryService {
       .map((r) => r.id);
   }
 
+  seriesBasics(seriesId: number): { title: string; genres: string[]; resume: ResumePoint | null } {
+    const row = this.row(seriesId);
+    if (!row) throw new Error("Series not found");
+    return { title: row.title, genres: JSON.parse(row.genres) as string[], resume: this.resume(seriesId) };
+  }
+
   title(seriesId: number): string | null {
     return this.row(seriesId)?.title ?? null;
   }
@@ -397,6 +403,7 @@ export class LibraryService {
       unreadCount: numbered.filter((c) => !c.read).length,
       latestChapter: numbered.length ? numbered[numbered.length - 1]!.number : null,
       lastReadChapter: lastRead,
+      nextChapter: numbered.find((c) => !c.read && (lastRead === null || c.number! > lastRead))?.number ?? null,
       updatedAt: row.updated_at,
     };
   }

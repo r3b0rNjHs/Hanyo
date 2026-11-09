@@ -44,6 +44,8 @@ export class MangaDexProvider implements Provider {
   readonly id = "mangadex" as const;
   private readonly api = new RateLimiter(4, 1000);
   private readonly atHome = new RateLimiter(35, 60_000);
+  /** uploads.mangadex.org returns 403/429 on bursts (e.g. a grid of covers): pace and retry. */
+  private readonly uploads = new RateLimiter(5, 1000);
 
   constructor(private readonly userAgent: string) {}
 
@@ -144,7 +146,7 @@ export class MangaDexProvider implements Provider {
     let bytes = Buffer.alloc(0);
     let cached = false;
     try {
-      const res = await fetchOk(url, { headers: { "User-Agent": this.userAgent }, timeoutMs: 30_000 });
+      const res = await this.fetchImageWithRetry(url);
       bytes = Buffer.from(await res.arrayBuffer());
       cached = res.headers.get("x-cache")?.startsWith("HIT") ?? false;
       ok = true;
@@ -153,6 +155,20 @@ export class MangaDexProvider implements Provider {
       // MangaDex@Home asks clients to report image loads from non-mangadex.org nodes.
       if (!new URL(url).hostname.endsWith("mangadex.org")) {
         void this.report(url, ok, bytes.length, Date.now() - started, cached);
+      }
+    }
+  }
+
+  private async fetchImageWithRetry(url: string): Promise<Response> {
+    const isUploads = new URL(url).hostname === "uploads.mangadex.org";
+    for (let attempt = 0; ; attempt++) {
+      const doFetch = () => fetchOk(url, { headers: { "User-Agent": this.userAgent }, timeoutMs: 30_000 });
+      try {
+        return await (isUploads ? this.uploads.schedule(doFetch) : doFetch());
+      } catch (e) {
+        const status = (e as { status?: number }).status;
+        if (attempt >= 2 || (status !== 403 && status !== 429 && status !== undefined && status < 500)) throw e;
+        await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
       }
     }
   }
