@@ -1,0 +1,31 @@
+# Deploy runbook
+
+Hanyo runs on the existing yoqze VPS next to the yoqze platform, without touching it:
+its own PM2 process (`hanyo-api`, port 3101), its own Docker services bound to 127.0.0.1, and its own Caddy
+site file imported from `/etc/caddy/Caddyfile`.
+
+## First install (once)
+
+1. If the repo is private, give the VPS read access: add `/home/deploy/.ssh/id_ed25519.pub` as a
+   **Deploy key** (read-only) in GitHub → r3b0rNjHs/Hanyo → Settings → Deploy keys.
+   (The setup script prints the key if the clone fails.)
+2. SSH in as `ubuntu` and run:
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/r3b0rNjHs/Hanyo/main/deploy/setup.sh -o setup.sh && bash setup.sh
+   ```
+   It asks for the app password, generates the session secret and push (VAPID) keys, builds, starts
+   Suwayomi + FlareSolverr, installs the extensions in `deploy/extensions.txt`, starts `hanyo-api` in PM2 and
+   adds the Caddy site (validated on a copy first; a timestamped backup of the old Caddyfile is kept).
+3. DNS at IONOS: `A  hanyo → <VPS_IP>`. Caddy issues the certificate automatically.
+4. Auto-deploy: in r3b0rNjHs/Hanyo add secrets `VPS_HOST`, `VPS_USER` (`deploy`), `VPS_SSH_KEY`
+   (same as yoqze-agents) and the repository variable `DEPLOY_ENABLED=true`.
+
+## Day to day
+- Push to `main` → GitHub Actions runs `deploy/deploy.sh` on the VPS (pull, build, publish PWA, restart).
+- Add a source: append its package to `deploy/extensions.txt` (names in the Keiyoushi repo) and push.
+- Logs: `pm2 logs hanyo-api` · `cd ~/hanyo/deploy && sudo docker compose logs -f suwayomi`
+- Upgrade Suwayomi: `cd ~/hanyo/deploy && sudo docker compose pull && sudo docker compose up -d`
+- Backups: `~/hanyo/data/backups/` (daily 03:30 UTC, 7 days)
+
+## Resource budget (8 GB VPS)
+Suwayomi ≤ 1.6 GB, FlareSolverr ≤ 1 GB, hanyo-api ≤ 512 MB, image cache ≤ 15 GB of disk.
