@@ -100,7 +100,19 @@
     }
   }
 
-  const ordered = $derived(s ? (newestFirst ? [...s.chapters].reverse() : s.chapters) : []);
+  type ListFilter = "all" | "unread" | "downloaded";
+  let listFilter = $state<ListFilter>("all");
+  /** Long series have hundreds of chapters: render in steps instead of one huge list. */
+  const STEP = 60;
+  let shown = $state(STEP);
+  const filtered = $derived(
+    s
+      ? s.chapters.filter((c) =>
+          listFilter === "unread" ? !c.read : listFilter === "downloaded" ? downloads.records.has(c.id) : true,
+        )
+      : [],
+  );
+  const ordered = $derived(newestFirst ? [...filtered].reverse() : filtered);
   const firstUnread = $derived(s?.chapters.find((c) => !c.read && c.number !== null) ?? null);
   const readTarget = $derived(
     s?.resume ? { id: s.resume.chapterId, label: `Leer ${chapterLabel(s.resume.chapterNumber).toLowerCase()}` }
@@ -255,53 +267,53 @@
       </p>
     {/if}
 
-    <div class="mt-4 grid grid-cols-3 gap-2">
-      <div class="rounded-2xl bg-surface px-3 py-2.5">
-        <p class="font-display text-lg font-bold">{s.chapters.length}</p>
-        <p class="text-xs text-muted">capítulos</p>
-      </div>
-      <button class="rounded-2xl bg-surface px-3 py-2.5 text-left active:bg-raised" onclick={() => (sourcesOpen = true)} aria-label="Gestionar fuentes">
-        <p class="font-display flex items-center justify-between text-lg font-bold">{s.sources.length}<Icon name="chevronRight" size={16} class="text-faint" /></p>
-        <p class="truncate text-xs text-muted">{s.sources.length === 1 ? "fuente" : "fuentes"}</p>
-      </button>
-      <div class="rounded-2xl bg-surface px-3 py-2.5">
-        <p class="flex h-7 items-center"><span class="h-2.5 w-2.5 rounded-full {statusDot[s.status]}"></span></p>
-        <p class="truncate text-xs text-muted">{statusLabel[s.status]?.toLowerCase()}</p>
-      </div>
+    <!-- Status, size and (when there's a choice) the reading language, in one line. -->
+    <div class="mt-3 flex items-center gap-3">
+      <p class="flex min-w-0 flex-1 items-center gap-2 text-[13px] text-soft">
+        <span class="h-2 w-2 shrink-0 rounded-full {statusDot[s.status]}"></span>
+        <span class="truncate">{statusLabel[s.status]} · {s.chapters.length} capítulos</span>
+      </p>
+      {#if s.availableLangs.length > 1}
+        <div class="flex shrink-0 gap-0.5 rounded-full bg-surface p-0.5" role="radiogroup" aria-label="Idioma de lectura">
+          {#each s.availableLangs as l (l)}
+            <button
+              role="radio"
+              aria-checked={s.lang === l}
+              aria-label={langNames[l] ?? l}
+              disabled={langBusy || offline}
+              onclick={() => switchLang(l)}
+              class="h-7 rounded-full px-2.5 text-[11px] font-bold tracking-wide uppercase {s.lang === l ? 'bg-accent text-on-accent' : 'text-muted'}"
+            >{l}</button>
+          {/each}
+        </div>
+      {/if}
     </div>
 
-    {#if s.availableLangs.length > 1}
-      <div class="mt-3 grid gap-1 rounded-full bg-surface p-1" style="grid-template-columns: repeat({s.availableLangs.length}, minmax(0, 1fr))" role="radiogroup" aria-label="Idioma de lectura">
-        {#each s.availableLangs as l (l)}
-          <button
-            role="radio"
-            aria-checked={s.lang === l}
-            disabled={langBusy || offline}
-            onclick={() => switchLang(l)}
-            class="h-9 rounded-full text-[13px] font-semibold {s.lang === l ? 'bg-accent text-on-accent' : 'text-soft'}"
-          >{langNames[l] ?? l.toUpperCase()}</button>
-        {/each}
-      </div>
+    {#if readTarget}
+      <a href="/read/{readTarget.id}" class="mt-4 flex h-[54px] w-full items-center justify-center gap-2 rounded-full bg-accent text-[16px] font-bold text-on-accent">
+        <Icon name="play" size={16} filled /> {readTarget.label}
+      </a>
     {/if}
 
-    <div class="mt-4 flex gap-2.5">
-      {#if readTarget}
-        <a href="/read/{readTarget.id}" class="flex h-[54px] flex-1 items-center justify-center gap-2 rounded-full bg-accent text-[15px] font-bold text-on-accent">
-          <Icon name="play" size={16} filled /> {readTarget.label}
-        </a>
-      {/if}
+    <!-- Secondary actions: same weight, labelled. -->
+    <div class="mt-2.5 grid grid-cols-3 gap-2">
       <button
         onclick={libraryButton}
         disabled={busy || offline}
         aria-label={s.inLibrary ? `Lista: ${shelfLabel(s.shelf)}` : "Añadir a la biblioteca"}
         aria-haspopup={s.inLibrary ? "dialog" : undefined}
-        class="flex h-[54px] items-center justify-center gap-2 rounded-full bg-raised font-bold {readTarget ? 'px-5' : 'flex-1'} {s.inLibrary ? 'text-accent-soft' : 'text-fg'}"
+        class="flex h-[60px] flex-col items-center justify-center gap-1 rounded-2xl text-xs font-semibold {s.inLibrary ? 'bg-accent/15 text-accent-soft' : 'bg-surface text-fg'}"
       >
-        <Icon name="bookmark" size={20} filled={s.inLibrary} stroke={2} />
-        <span class="text-[15px]">{s.inLibrary ? shelfLabel(s.shelf) : "Añadir"}</span>
+        <Icon name="bookmark" size={19} filled={s.inLibrary} stroke={2} />
+        {s.inLibrary ? shelfLabel(s.shelf) : "Añadir"}
       </button>
-      <button onclick={() => (downloadMenu = true)} aria-label="Descargar capítulos" class="flex h-[54px] w-[54px] items-center justify-center rounded-full bg-raised text-fg">
-        <Icon name="download" size={22} stroke={2} />
+      <button onclick={() => (downloadMenu = true)} aria-label="Descargar capítulos" class="flex h-[60px] flex-col items-center justify-center gap-1 rounded-2xl bg-surface text-xs font-semibold">
+        <Icon name="download" size={19} stroke={2} />
+        Descargar
+      </button>
+      <button onclick={() => (sourcesOpen = true)} aria-label="Gestionar fuentes" class="flex h-[60px] flex-col items-center justify-center gap-1 rounded-2xl bg-surface text-xs font-semibold">
+        <Icon name="layers" size={19} stroke={2} />
+        {s.sources.length} {s.sources.length === 1 ? "fuente" : "fuentes"}
       </button>
     </div>
 
@@ -374,13 +386,24 @@
 
     <section aria-label="Todos los capítulos" class="mt-6">
       <div class="flex items-baseline justify-between">
-        <h2 class="font-display text-lg font-semibold">Todos</h2>
-        <button class="text-[13px] text-muted" onclick={() => (newestFirst = !newestFirst)}>
+        <h2 class="font-display text-lg font-semibold">Capítulos</h2>
+        <button class="flex items-center gap-1 text-[13px] text-muted" onclick={() => (newestFirst = !newestFirst)} aria-label="Cambiar orden">
           {newestFirst ? "Recientes primero" : "Primeros primero"}
+          <Icon name="sliders" size={14} />
         </button>
       </div>
+      <div class="no-scrollbar mt-2 flex gap-2 overflow-x-auto" role="radiogroup" aria-label="Mostrar">
+        {#each [["all", "Todos", s.chapters.length], ["unread", "Sin leer", unread.length], ["downloaded", "Descargados", dl.done]] as const as [k, label, n] (k)}
+          <button
+            role="radio"
+            aria-checked={listFilter === k}
+            onclick={() => { listFilter = k; shown = STEP; }}
+            class="h-8 shrink-0 rounded-full px-3.5 text-[13px] font-semibold {listFilter === k ? 'bg-fg text-base' : 'bg-surface text-soft'}"
+          >{label} <span class={listFilter === k ? "" : "text-muted"}>{n}</span></button>
+        {/each}
+      </div>
       <ul class="mt-1">
-        {#each ordered as c (c.id)}
+        {#each ordered.slice(0, shown) as c (c.id)}
           {@const st = downloads.status(c.id)}
           {@const current = s.resume?.chapterId === c.id}
           <li class="flex items-center">
@@ -409,6 +432,13 @@
           </li>
         {/each}
       </ul>
+      {#if ordered.length > shown}
+        <button class="mt-2 h-11 w-full rounded-full bg-surface text-sm font-semibold text-soft" onclick={() => (shown += STEP * 3)}>
+          Mostrar más ({ordered.length - shown})
+        </button>
+      {:else if ordered.length === 0}
+        <p class="py-8 text-center text-sm text-muted">{listFilter === "downloaded" ? "No hay capítulos descargados." : "Ya lo has leído todo."}</p>
+      {/if}
     </section>
   </div>
 {/if}
