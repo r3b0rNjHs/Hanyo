@@ -353,10 +353,18 @@
                 <p class="truncate text-[15px] font-semibold">{chapterLabel(c.number, c.title)}</p>
                 <p class="truncate text-xs text-muted">{relativeDate(c.publishedAt)}{c.publishedAt ? " · " : ""}{c.sourceName}</p>
               </a>
-              <button class="flex h-11 w-11 items-center justify-center text-muted" onclick={() => (menuFor = c)} aria-label="Opciones de {chapterLabel(c.number)}">
-                {#if st === "downloaded"}<Icon name="check" size={18} stroke={2.6} class="text-ok" />
+              <button
+                class="flex h-11 w-10 items-center justify-center {st === 'downloaded' ? 'text-ok' : 'text-muted'}"
+                onclick={() => rowDownload(c)}
+                aria-label={st === "none" ? `Descargar ${chapterLabel(c.number)}` : st === "queued" ? "Cancelar descarga" : st === "active" ? "Descargando" : "Descargado"}
+              >
+                {#if st === "downloaded"}<Icon name="check" size={18} stroke={2.6} />
                 {:else if st === "active"}<Spinner size={18} />
-                {:else}<Icon name="more" size={20} stroke={3} />{/if}
+                {:else if st === "queued"}<span class="h-2 w-2 rounded-full bg-muted"></span>
+                {:else}<Icon name="download" size={18} stroke={2} />{/if}
+              </button>
+              <button class="flex h-11 w-9 items-center justify-center text-muted" onclick={() => (menuFor = c)} aria-label="Opciones de {chapterLabel(c.number)}">
+                <Icon name="more" size={20} stroke={3} />
               </button>
             </li>
           {/each}
