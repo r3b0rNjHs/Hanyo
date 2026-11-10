@@ -98,11 +98,13 @@
   }
 </script>
 
-<div class="pt-safe sticky top-0 z-20 bg-ink-950/85 px-4 pt-3 pb-3 backdrop-blur-xl">
-  <h1 class="text-[28px] font-bold tracking-tight">Buscar</h1>
-  <form class="relative mt-2" onsubmit={run}>
-    <span class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-500"><Icon name="search" size={18} /></span>
+<div class="pt-safe sticky top-0 z-20 bg-base/90 px-5 pt-4 pb-3 backdrop-blur-xl">
+  <h1 class="font-display text-[30px] leading-tight font-bold tracking-[-0.03em]">Buscar</h1>
+  <form class="relative mt-3" onsubmit={run} role="search">
+    <span class="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-muted"><Icon name="search" size={19} stroke={2} /></span>
+    <label for="q" class="sr-only">Buscar series</label>
     <input
+      id="q"
       bind:this={input}
       bind:value={query}
       type="search"
@@ -110,57 +112,66 @@
       autocomplete="off"
       autocapitalize="off"
       placeholder="Solo Leveling, Mount Hua, Eleceed…"
-      class="w-full rounded-xl bg-ink-850 py-2.5 pr-3 pl-10 text-base outline-none placeholder:text-ink-500"
+      class="h-12 w-full rounded-full bg-raised pr-4 pl-11 text-base outline-none placeholder:text-faint focus:ring-2 focus:ring-accent/60"
     />
   </form>
   {#if sources.length > 0}
-    <p class="mt-2 text-xs text-ink-500">
-      Busca en {sources.length} fuentes: {sources.map((s) => s.name).join(" · ")}
-    </p>
+    <div class="no-scrollbar mt-3 flex gap-1.5 overflow-x-auto">
+      {#each sources as src (src.key)}
+        {@const busy = pending.has(src.key)}
+        {@const bad = failed.some((f) => f.name === src.name)}
+        <span class="flex shrink-0 items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-xs {bad ? 'text-danger' : 'text-muted'}">
+          {#if busy}<span class="h-1.5 w-1.5 animate-pulse rounded-full bg-accent"></span>{:else if searched && !bad}<span class="h-1.5 w-1.5 rounded-full bg-ok"></span>{/if}
+          {src.name}
+        </span>
+      {/each}
+    </div>
   {/if}
 </div>
 
-{#if pending.size > 0}
-  <div class="flex items-center gap-2 px-4 py-2 text-xs text-ink-400">
-    <Spinner size={14} />
-    Buscando en {[...pending].map((k) => sources.find((s) => s.key === k)?.name ?? k).join(", ")}…
-  </div>
-{/if}
-
-<ul class="divide-y divide-white/5">
+<ul class="mt-1 space-y-2 px-5">
   {#each visible as g (g.key)}
     <li>
-      <button class="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-white/5" onclick={() => open(g)}>
-        <Cover src={g.cover} alt={g.title} class="w-16 shrink-0 rounded-lg" />
+      <button class="flex w-full items-center gap-3.5 rounded-[var(--radius-card)] bg-surface p-2.5 pr-3 text-left active:bg-raised" onclick={() => open(g)}>
+        <Cover src={g.cover} alt={g.title} class="w-[68px] shrink-0" rounded="rounded-[14px]" />
         <div class="min-w-0 flex-1">
-          <p class="line-clamp-2 font-semibold leading-snug">{g.title}</p>
-          {#if g.aka.length}<p class="mt-0.5 truncate text-xs text-ink-400">También: {g.aka.join(" · ")}</p>{/if}
-          <div class="mt-1.5 flex flex-wrap gap-1">
+          <p class="font-display line-clamp-2 text-[17px] leading-snug font-semibold tracking-tight">{g.title}</p>
+          {#if g.aka.length}<p class="mt-0.5 truncate text-xs text-muted">También: {g.aka.join(" · ")}</p>{/if}
+          <div class="mt-2 flex flex-wrap gap-1">
             {#each g.hits as h (h.sourceKey)}
-              <span class="rounded-md bg-ink-800 px-1.5 py-0.5 text-[11px] font-medium text-ink-200">{h.sourceName}</span>
+              <span class="rounded-full bg-raised px-2 py-0.5 text-[11px] font-medium text-soft">{h.sourceName}</span>
             {/each}
           </div>
         </div>
-        {#if opening === g.key}<Spinner size={18} />{:else}<Icon name="back" size={18} class="rotate-180 text-ink-500" />{/if}
+        {#if opening === g.key}<Spinner size={18} />{:else}<Icon name="chevronRight" size={20} class="shrink-0 text-faint" />{/if}
       </button>
     </li>
   {/each}
 </ul>
 
 {#if groups.length > visible.length}
-  <button class="mx-4 mt-2 w-[calc(100%-2rem)] rounded-xl bg-ink-900 py-3 text-sm font-medium text-ink-200" onclick={() => (showAll = true)}>
-    Mostrar {groups.length - visible.length} resultados menos relevantes
-  </button>
+  <div class="px-5">
+    <button class="mt-3 h-12 w-full rounded-full bg-raised text-sm font-semibold text-soft" onclick={() => (showAll = true)}>
+      Mostrar {groups.length - visible.length} resultados menos relevantes
+    </button>
+  </div>
 {/if}
 
 {#if searched && pending.size === 0 && groups.length === 0}
-  <p class="px-6 py-16 text-center text-ink-400">Sin resultados para «{query}».</p>
+  <p class="px-6 py-16 text-center text-muted">Sin resultados para «{query}».</p>
+{/if}
+
+{#if !searched}
+  <div class="px-8 py-16 text-center">
+    <p class="font-display text-xl font-bold">¿Qué quieres leer?</p>
+    <p class="mt-2 text-sm text-muted">Buscamos a la vez en todas las fuentes y juntamos la misma serie aunque cada web la llame distinto.</p>
+  </div>
 {/if}
 
 {#if failed.length > 0 && pending.size === 0}
-  <div class="mx-4 mt-4 rounded-xl bg-ink-900 p-3 text-xs text-ink-400">
+  <div class="mx-5 mt-4 rounded-[var(--radius-card)] bg-surface p-3.5 text-xs text-muted">
     {#each failed as f (f.name)}
-      <p><span class="font-semibold text-ink-200">{f.name}</span> no respondió: {f.error}</p>
+      <p><span class="font-semibold text-soft">{f.name}</span> no respondió: {f.error}</p>
     {/each}
   </div>
 {/if}

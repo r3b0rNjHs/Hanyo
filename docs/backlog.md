@@ -15,6 +15,9 @@
 - [ ] Store page dimensions server-side so strip placeholders have exact size before load
 - [ ] Resume within a tall page (store intra-page fraction, not just page index)
 
+- [ ] Series covers in the reader's "next chapter" card (needs cover in the page list response)
+- [ ] Light theme variant of Pulso
+
 ## Tech
 - [ ] Silence `state_referenced_locally` warnings in reader components (untrack)
 - [ ] E2E Playwright suite in CI using a fake provider

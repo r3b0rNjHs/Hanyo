@@ -20,22 +20,29 @@
     bell: "M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9Zm4.3 13a2 2 0 0 0 3.4 0",
     layers: "M12 3 2 8l10 5 10-5-10-5Zm-10 9 10 5 10-5M2 16l10 5 10-5",
     eye: "M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Zm10 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+    bookmark: "M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1Z",
+    sliders: "M4 7h10M18 7h2M4 17h4M12 17h8M16 5v4M10 15v4",
+    arrowRight: "M5 12h14M13 6l6 6-6 6",
+    chevronRight: "M9 6l6 6-6 6",
+    sun: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5",
+    home: "M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1v-9.5Z",
   } as const;
 
   let {
     name,
     size = 22,
     stroke = 1.9,
+    filled = false,
     class: cls = "",
-  }: { name: keyof typeof paths; size?: number; stroke?: number; class?: string } = $props();
+  }: { name: keyof typeof paths; size?: number; stroke?: number; filled?: boolean; class?: string } = $props();
 </script>
 
 <svg
   width={size}
   height={size}
   viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
+  fill={filled ? "currentColor" : "none"}
+  stroke={filled ? "none" : "currentColor"}
   stroke-width={stroke}
   stroke-linecap="round"
   stroke-linejoin="round"

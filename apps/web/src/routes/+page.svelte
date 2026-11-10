@@ -9,21 +9,40 @@
   import { downloads } from "$lib/offline/downloads.svelte";
   import { chapterLabel } from "$lib/format";
 
+  type Filter = "all" | "new" | "downloaded";
+
   let items = $state<SeriesSummary[] | null>(null);
   let error = $state<string | null>(null);
   let checking = $state(false);
   let toast = $state<string | null>(null);
-  let filter = $state<"all" | "unread" | "downloaded">("all");
+  let filter = $state<Filter>("all");
 
   const downloadedSeries = $derived(new Set([...downloads.records.values()].map((r) => r.seriesId)));
-  const continueReading = $derived(
-    (items ?? []).filter((s) => s.lastReadChapter !== null && s.nextChapter !== null).slice(0, 8),
-  );
+  /** Started series with something left to read: the "Leyendo" carousel. */
+  const reading = $derived((items ?? []).filter((s) => s.lastReadChapter !== null && s.nextChapter !== null).slice(0, 10));
+  /** New chapters since where you left off. */
+  const hasNew = (s: SeriesSummary) => s.lastReadChapter !== null && s.unreadCount > 0;
+  const counts = $derived({
+    all: items?.length ?? 0,
+    new: (items ?? []).filter(hasNew).length,
+    downloaded: (items ?? []).filter((s) => downloadedSeries.has(s.id)).length,
+  });
   const visible = $derived(
-    (items ?? []).filter((s) =>
-      filter === "unread" ? s.unreadCount > 0 : filter === "downloaded" ? downloadedSeries.has(s.id) : true,
-    ),
+    (items ?? []).filter((s) => (filter === "new" ? hasNew(s) : filter === "downloaded" ? downloadedSeries.has(s.id) : true)),
   );
+
+  function progress(s: SeriesSummary): number {
+    if (!s.latestChapter || s.lastReadChapter === null) return 0;
+    return Math.min(100, Math.round((s.lastReadChapter / s.latestChapter) * 100));
+  }
+
+  function meta(s: SeriesSummary): string {
+    if (s.lastReadChapter === null) return s.latestChapter ? `Sin empezar · ${s.latestChapter} caps.` : "Sin empezar";
+    if (s.nextChapter === null) return "Al día";
+    return `Cap. ${fmt(s.nextChapter)} · ${s.unreadCount} sin leer`;
+  }
+
+  const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
   async function load() {
     try {
@@ -51,85 +70,113 @@
   onMount(load);
 </script>
 
-<PageHeader title="Biblioteca" subtitle={items ? `${items.length} series` : undefined}>
+<PageHeader title="Tu biblioteca">
   {#snippet actions()}
     <button
-      class="flex h-10 w-10 items-center justify-center rounded-full text-ink-200 active:bg-white/10"
+      class="flex h-11 w-11 items-center justify-center rounded-full bg-raised text-fg active:bg-line"
       onclick={checkUpdates}
       aria-label="Buscar capítulos nuevos"
     >
-      {#if checking}<Spinner size={20} />{:else}<Icon name="refresh" />{/if}
+      {#if checking}<Spinner size={18} />{:else}<Icon name="refresh" size={20} stroke={2} />{/if}
     </button>
+    <a href="/search" class="flex h-11 w-11 items-center justify-center rounded-full bg-raised text-fg active:bg-line" aria-label="Buscar series">
+      <Icon name="search" size={20} stroke={2} />
+    </a>
   {/snippet}
 </PageHeader>
 
 {#if toast}
-  <div class="fixed inset-x-0 top-[calc(var(--safe-top)+64px)] z-30 flex justify-center">
-    <div class="rounded-full bg-ink-700 px-4 py-2 text-sm font-medium shadow-lg">{toast}</div>
+  <div class="fixed inset-x-0 top-[calc(var(--safe-top)+76px)] z-30 flex justify-center px-4" role="status">
+    <div class="rounded-full bg-raised px-4 py-2 text-sm font-medium shadow-lg">{toast}</div>
   </div>
 {/if}
 
 {#if items === null && !error}
   <div class="flex justify-center py-24"><Spinner /></div>
 {:else if error && items === null}
-  <p class="px-6 py-24 text-center text-ink-400">{error}</p>
+  <p class="px-6 py-24 text-center text-muted">{error}</p>
 {:else if items && items.length === 0}
-  <div class="flex flex-col items-center px-10 py-24 text-center">
-    <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-ink-850 text-hanji-300">
-      <Icon name="library" size={30} />
+  <div class="flex flex-col items-center px-10 py-20 text-center">
+    <div class="flex h-20 w-20 items-center justify-center rounded-[var(--radius-panel)] bg-accent text-on-accent">
+      <Icon name="library" size={34} stroke={2} />
     </div>
-    <h2 class="mt-5 text-lg font-semibold">Tu biblioteca está vacía</h2>
-    <p class="mt-1 text-sm text-ink-400">Busca una serie y pulsa «Añadir» para tenerla siempre al día.</p>
-    <a href="/search" class="mt-6 rounded-full bg-hanji-300 px-5 py-2.5 text-sm font-semibold text-ink-950">
-      Buscar series
+    <h2 class="font-display mt-6 text-2xl font-bold tracking-tight">Empieza tu biblioteca</h2>
+    <p class="mt-2 text-[15px] text-muted">Busca una serie y pulsa «Añadir»: la tendrás siempre al día y podrás descargarla.</p>
+    <a href="/search" class="mt-7 flex h-[52px] items-center gap-2 rounded-full bg-accent px-6 font-bold text-on-accent">
+      <Icon name="search" size={18} stroke={2.4} /> Buscar series
     </a>
   </div>
 {:else if items}
-  {#if continueReading.length > 0}
-    <section class="mt-1">
-      <h2 class="px-4 text-[15px] font-semibold text-ink-200">Continuar leyendo</h2>
-      <div class="no-scrollbar mt-2.5 flex gap-3 overflow-x-auto px-4 pb-1">
-        {#each continueReading as s (s.id)}
-          <a href="/series/{s.id}?resume=1" class="w-[38%] max-w-40 shrink-0">
-            <Cover src={s.coverUrl} alt={s.title} />
-            <p class="mt-1.5 truncate text-[13px] font-medium">{s.title}</p>
-            <p class="text-xs text-hanji-300">Sigue: {chapterLabel(s.nextChapter)}</p>
-          </a>
-        {/each}
-      </div>
+  {#if reading.length > 0}
+    <section aria-label="Leyendo ahora" class="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-5 px-5 pt-1 pb-1">
+      {#each reading as s (s.id)}
+        <a
+          href="/series/{s.id}?resume=1"
+          class="flex h-[188px] w-[78%] max-w-[300px] shrink-0 snap-start overflow-hidden rounded-[var(--radius-panel)] border border-line/70 bg-surface"
+        >
+          <Cover src={s.coverUrl} alt={s.title} rounded="rounded-none" class="h-full w-[118px] shrink-0 !aspect-auto" />
+          <div class="flex min-w-0 flex-1 flex-col gap-1.5 p-4">
+            <span class="text-xs text-muted">Leyendo</span>
+            <span class="font-display line-clamp-2 text-xl leading-tight font-semibold tracking-tight">{s.title}</span>
+            <span class="text-[13px] text-soft">{chapterLabel(s.nextChapter).replace("Capítulo", "Cap.")}{s.latestChapter ? ` de ${fmt(s.latestChapter)}` : ""}</span>
+            <div class="mt-auto flex items-center gap-2.5">
+              <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-line" role="progressbar" aria-valuenow={progress(s)} aria-valuemin="0" aria-valuemax="100" aria-label="Progreso">
+                <div class="h-full rounded-full bg-accent" style="width: {progress(s)}%"></div>
+              </div>
+              <span class="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-on-accent" aria-hidden="true">
+                <Icon name="play" size={14} filled />
+              </span>
+            </div>
+          </div>
+        </a>
+      {/each}
     </section>
   {/if}
 
-  <div class="no-scrollbar mt-5 flex gap-2 overflow-x-auto px-4">
-    {#each [["all", "Todas"], ["unread", "Con capítulos nuevos"], ["downloaded", "Descargadas"]] as const as [key, label] (key)}
+  <div role="tablist" aria-label="Filtros" class="no-scrollbar mt-5 flex gap-2 overflow-x-auto px-5">
+    {#each [["all", "Todas"], ["new", "Nuevos"], ["downloaded", "Descargadas"]] as const as [key, label] (key)}
+      {@const selected = filter === key}
       <button
+        role="tab"
+        aria-selected={selected}
         onclick={() => (filter = key)}
-        class="shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-medium {filter === key
-          ? 'bg-ink-100 text-ink-950'
-          : 'bg-ink-850 text-ink-200'}">{label}</button
+        class="flex h-9 shrink-0 items-center gap-1.5 rounded-full px-4 text-[13px] font-semibold {selected
+          ? 'bg-accent text-on-accent'
+          : 'bg-raised text-soft'}"
       >
+        {label}
+        {#if key === "new" && counts.new > 0}
+          <span class="rounded-lg bg-fresh px-1.5 text-[11px] leading-[18px] font-bold text-on-fresh">{counts.new}</span>
+        {:else if key === "all"}
+          <span class={selected ? "" : "text-muted"}>· {counts.all}</span>
+        {/if}
+      </button>
     {/each}
   </div>
 
-  <div class="mt-4 grid grid-cols-3 gap-x-3 gap-y-4 px-4">
-    {#each visible as s (s.id)}
-      <a href="/series/{s.id}" class="min-w-0">
-        <div class="relative">
-          <Cover src={s.coverUrl} alt={s.title} />
-          {#if s.unreadCount > 0}
-            <span
-              class="absolute top-1.5 left-1.5 rounded-md bg-hanji-300 px-1.5 py-0.5 text-[11px] font-bold text-ink-950"
-              >{s.unreadCount}</span
-            >
-          {/if}
-          {#if downloadedSeries.has(s.id)}
-            <span class="absolute top-1.5 right-1.5 rounded-md bg-ink-950/80 p-1 text-ink-100">
-              <Icon name="download" size={12} stroke={2.4} />
-            </span>
-          {/if}
-        </div>
-        <p class="mt-1.5 line-clamp-2 text-[13px] leading-snug font-medium">{s.title}</p>
-      </a>
-    {/each}
-  </div>
+  {#if visible.length === 0}
+    <p class="px-6 py-16 text-center text-sm text-muted">
+      {filter === "new" ? "No hay capítulos nuevos en las series que sigues." : "Todavía no has descargado nada."}
+    </p>
+  {:else}
+    <div class="mt-4 grid grid-cols-2 gap-x-3.5 gap-y-5 px-5">
+      {#each visible as s (s.id)}
+        <a href="/series/{s.id}" class="min-w-0">
+          <div class="relative">
+            <Cover src={s.coverUrl} alt={s.title} />
+            {#if hasNew(s)}
+              <span class="absolute top-2.5 left-2.5 rounded-[10px] bg-fresh px-2 py-0.5 text-xs font-bold text-on-fresh">+{s.unreadCount}</span>
+            {/if}
+            {#if downloadedSeries.has(s.id)}
+              <span class="absolute top-2.5 right-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-base/80 text-fg" aria-label="Descargada">
+                <Icon name="download" size={14} stroke={2.4} />
+              </span>
+            {/if}
+          </div>
+          <p class="mt-2 truncate text-[14px] font-semibold">{s.title}</p>
+          <p class="truncate text-xs text-muted">{meta(s)}</p>
+        </a>
+      {/each}
+    </div>
+  {/if}
 {/if}

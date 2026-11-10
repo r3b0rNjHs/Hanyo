@@ -1,4 +1,6 @@
 <script lang="ts">
+  import "@fontsource-variable/inter";
+  import "@fontsource-variable/space-grotesk";
   import "../app.css";
   import { onMount } from "svelte";
   import { page } from "$app/state";
@@ -28,6 +30,11 @@
     void downloads.init();
     if (!dev && "serviceWorker" in navigator) {
       void navigator.serviceWorker.register("/service-worker.js", { type: "module" });
+      // On the very first visit the library is fetched before the service worker controls the
+      // page, so it never reaches the offline cache. Fetch it again once the worker is in charge.
+      const warm = () => void fetch("/api/library", { credentials: "same-origin" }).catch(() => undefined);
+      if (navigator.serviceWorker.controller) warm();
+      else navigator.serviceWorker.addEventListener("controllerchange", warm, { once: true });
     }
     const online = () => {
       connection.online = true;
@@ -46,10 +53,11 @@
 </script>
 
 {#if !connection.online && !hideTabs}
-  <div
-    class="pt-safe fixed inset-x-0 top-0 z-40 flex items-center justify-center gap-2 bg-ink-800/95 pb-1.5 text-xs font-medium text-ink-200"
-  >
-    <Icon name="cloudOff" size={14} /> Sin conexión · solo contenido descargado
+  <!-- Sits just above the tab bar so it never covers a screen title. -->
+  <div class="fixed inset-x-0 z-40 flex justify-center px-4" style="bottom: calc(var(--safe-bottom) + var(--tabbar-gap) + var(--tabbar-h) + 10px)" role="status">
+    <div class="flex items-center gap-2 rounded-full border border-line bg-raised px-3.5 py-1.5 text-xs font-medium text-soft shadow-lg">
+      <Icon name="cloudOff" size={14} /> Sin conexión · solo lo descargado
+    </div>
   </div>
 {/if}
 
@@ -59,27 +67,30 @@
 
 {#if !hideTabs}
   <nav
-    class="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-white/5 bg-ink-900/90 backdrop-blur-xl"
     aria-label="Navegación principal"
+    class="fixed inset-x-4 z-30 mx-auto max-w-md"
+    style="bottom: calc(var(--safe-bottom) + var(--tabbar-gap))"
   >
-    <ul class="mx-auto flex h-[var(--tabbar-h)] max-w-lg items-stretch">
+    <ul
+      class="flex h-[var(--tabbar-h)] gap-1 rounded-full border border-line bg-raised/95 p-[7px] shadow-[0_12px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+    >
       {#each tabs as tab (tab.href)}
         {@const active = isActive(tab.href)}
-        <li class="flex-1">
+        <!-- The active tab grows to fit its label; the others stay icon-only. -->
+        <li class="min-w-0 transition-[flex-grow] duration-200 {active ? 'grow-[2.2]' : 'grow'} basis-0">
           <a
             href={tab.href}
-            class="flex h-full flex-col items-center justify-center gap-0.5 text-[10.5px] font-medium transition-colors {active
-              ? 'text-hanji-300'
-              : 'text-ink-500'}"
+            aria-label={tab.label}
             aria-current={active ? "page" : undefined}
+            class="relative flex h-full items-center justify-center gap-1.5 rounded-full text-[13px] font-semibold transition-colors {active
+              ? 'bg-accent text-on-accent'
+              : 'text-muted active:bg-white/5'}"
           >
-            <span class="relative">
-              <Icon name={tab.icon} size={24} stroke={active ? 2.2 : 1.8} />
-              {#if tab.href === "/downloads" && (downloads.active || downloads.queue.length > 0)}
-                <span class="absolute -top-0.5 -right-1 h-2 w-2 rounded-full bg-hanji-400"></span>
-              {/if}
-            </span>
-            {tab.label}
+            <Icon name={tab.icon} size={active ? 20 : 22} stroke={active ? 2.1 : 1.9} />
+            {#if active}<span class="truncate">{tab.label}</span>{/if}
+            {#if tab.href === "/downloads" && !active && (downloads.active || downloads.queue.length > 0)}
+              <span class="absolute top-3 right-[calc(50%-14px)] h-2 w-2 rounded-full bg-fresh"></span>
+            {/if}
           </a>
         </li>
       {/each}

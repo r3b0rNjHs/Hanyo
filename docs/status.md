@@ -10,6 +10,8 @@ _Last updated: 2026-11-09_
   locally. Extension install could not be exercised in the dev sandbox → first real test happens on the VPS.
 - **PWA**: library, unified search, series page, vertical + paged reader, downloads (persistent queue),
   offline mode (verified in airplane mode with Playwright), settings, push subscription, icons/manifest.
+- **UI**: "Pulso" design applied to every screen (ADR-009); search merges and ranks results across sources
+  using AniList names and popularity.
 - **Compact pages**: downloads are re-encoded to WebP/mozjpeg q90 on the server (~80% smaller, 12 API tests).
 - **Deploy**: `deploy/setup.sh` (one-shot), `deploy/deploy.sh` (CI), Docker compose for Suwayomi + FlareSolverr,
   Caddy site via `import`, GitHub Actions CI + deploy (gated by `DEPLOY_ENABLED`).

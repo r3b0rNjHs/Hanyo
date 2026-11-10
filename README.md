@@ -6,8 +6,8 @@ biblioteca, recibe avisos de capítulos nuevos y descárgalos para leerlos sin c
 <p>
   <img src="docs/screenshots/02-biblioteca.png" width="190" />
   <img src="docs/screenshots/04-serie.png" width="190" />
-  <img src="docs/screenshots/05b-lector-scroll.png" width="190" />
-  <img src="docs/screenshots/07-descargas.png" width="190" />
+  <img src="docs/screenshots/05-lector.png" width="190" />
+  <img src="docs/screenshots/05c-lector-fin.png" width="190" />
 </p>
 
 - **App**: PWA (SvelteKit) que se instala desde Safari → «Añadir a pantalla de inicio».

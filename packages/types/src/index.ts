@@ -124,6 +124,8 @@ export interface ChapterPages {
   pages: string[];
   prevChapterId: number | null;
   nextChapterId: number | null;
+  /** Number of the next chapter in the merged list (sources often skip numbers). */
+  nextChapterNumber: number | null;
 }
 
 export interface ProgressUpdate {

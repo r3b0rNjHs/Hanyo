@@ -1,5 +1,10 @@
 <script lang="ts">
-  let { src, alt, class: cls = "" }: { src: string | null; alt: string; class?: string } = $props();
+  let {
+    src,
+    alt,
+    class: cls = "",
+    rounded = "rounded-[var(--radius-card)]",
+  }: { src: string | null; alt: string; class?: string; rounded?: string } = $props();
   let failed = $state(false);
   let retried = $state(false);
   let attempt = $state(0);
@@ -15,19 +20,19 @@
   }
 </script>
 
-<div class="relative aspect-[2/3] overflow-hidden rounded-xl bg-ink-800 {cls}">
+<div class="relative aspect-[3/4] overflow-hidden bg-raised {rounded} {cls}">
+  <!-- Typographic placeholder (as in the design), visible while the image loads or if it fails. -->
+  <div class="absolute inset-0 flex items-end bg-accent/20 p-3" aria-hidden="true">
+    <span class="font-display line-clamp-3 text-lg leading-[0.95] font-bold tracking-tight text-fg/90 uppercase">{alt}</span>
+  </div>
   {#if src && !failed}
     <img
       src={attempt ? `${src}${src.includes("?") ? "&" : "?"}r=${attempt}` : src}
       {alt}
       loading="lazy"
       decoding="async"
-      class="h-full w-full object-cover"
+      class="absolute inset-0 h-full w-full object-cover"
       onerror={onError}
     />
-  {:else}
-    <div class="flex h-full w-full items-center justify-center p-3 text-center text-xs font-medium text-ink-400">
-      {alt}
-    </div>
   {/if}
 </div>

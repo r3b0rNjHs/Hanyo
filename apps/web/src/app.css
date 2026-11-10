@@ -1,32 +1,47 @@
 @import "tailwindcss";
 
+/*
+ * "Pulso" design system (direction B): cool black, electric violet accent, coral for
+ * anything new, Space Grotesk display over Inter text. Tokens are named by role so the
+ * palette can change in one place.
+ */
 @theme {
-  --color-ink-950: #0e0d12;
-  --color-ink-900: #15141b;
-  --color-ink-850: #1b1a22;
-  --color-ink-800: #23212c;
-  --color-ink-700: #2f2c3a;
-  --color-ink-500: #6f6a7d;
-  --color-ink-400: #9a95a6;
-  --color-ink-200: #d9d5e0;
-  --color-ink-100: #ece9f1;
-  --color-hanji-300: #f3c27e;
-  --color-hanji-400: #eda466;
-  --color-hanji-500: #e2795a;
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "SF Pro Text", sans-serif;
+  --color-base: #0b0b10; /* app background */
+  --color-surface: #15151d; /* cards, rows */
+  --color-raised: #1e1e29; /* chips, icon buttons, sheets */
+  --color-line: #2c2c3c; /* borders, tracks */
+  --color-fg: #f4f4fa; /* primary text */
+  --color-soft: #dadae8; /* secondary text on raised */
+  --color-muted: #9c9cb3; /* tertiary text (≥ 4.5:1 on base) */
+  --color-faint: #6e6e86; /* read / disabled */
+  --color-accent: #8e7cff; /* primary actions, selection */
+  --color-accent-soft: #b3a8ff; /* accent text and icons on dark */
+  --color-on-accent: #0b0b10; /* text on accent */
+  --color-fresh: #ff8a73; /* new chapters */
+  --color-on-fresh: #1a0e0b;
+  --color-ok: #7be3b5; /* done, ongoing */
+  --color-danger: #ff7a85;
+
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: "Space Grotesk Variable", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+
+  --radius-card: 20px;
+  --radius-panel: 24px;
 }
 
 :root {
   color-scheme: dark;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --tabbar-h: 58px;
+  /* Floating tab bar: 64px pill + 12px gap above the home indicator. */
+  --tabbar-h: 64px;
+  --tabbar-gap: 12px;
 }
 
 html,
 body {
-  background: var(--color-ink-950);
-  color: var(--color-ink-100);
+  background: var(--color-base);
+  color: var(--color-fg);
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
@@ -38,12 +53,24 @@ body {
   font-family: var(--font-sans);
 }
 
-/* Buttons/links should not trigger double-tap zoom delays on iOS. */
 a,
 button,
 input,
-label {
+label,
+select {
   touch-action: manipulation;
+}
+
+/* Form controls don't inherit text colour by default (typed text came out grey). */
+input,
+select,
+textarea {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent-soft);
+  outline-offset: 2px;
 }
 
 .pt-safe {
@@ -52,8 +79,9 @@ label {
 .pb-safe {
   padding-bottom: var(--safe-bottom);
 }
+/* Room for the floating tab bar at the bottom of tabbed screens. */
 .pb-tabbar {
-  padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 12px);
+  padding-bottom: calc(var(--tabbar-h) + var(--tabbar-gap) + var(--safe-bottom) + 24px);
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -63,16 +91,63 @@ label {
   scrollbar-width: none;
 }
 
+.line-clamp-2,
 .line-clamp-3 {
   display: -webkit-box;
-  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-
 .line-clamp-2 {
-  display: -webkit-box;
   -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+}
+.line-clamp-3 {
+  -webkit-line-clamp: 3;
+}
+
+/* Bottom sheets (chapter menus, download options, reader settings). */
+.sheet-btn {
+  display: block;
+  width: 100%;
+  border-radius: 16px;
+  padding: 0.9rem 0.85rem;
+  text-align: left;
+  font-size: 16px;
+}
+.sheet-btn:active {
+  background: rgb(255 255 255 / 0.06);
+}
+.sheet-btn:disabled {
+  opacity: 0.4;
+}
+
+/* iOS-style switch for boolean settings (a real checkbox underneath). */
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 51px;
+  height: 31px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--color-line);
+  transition: background 0.2s;
+  cursor: pointer;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 999px;
+  background: var(--color-fg);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.35);
+  transition: transform 0.2s;
+}
+.switch:checked {
+  background: var(--color-accent);
+}
+.switch:checked::after {
+  transform: translateX(20px);
 }
