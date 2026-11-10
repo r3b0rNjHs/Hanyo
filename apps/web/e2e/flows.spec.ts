@@ -126,3 +126,29 @@ test("free space by deleting downloaded chapters already read", async ({ page })
   await page.getByRole("button", { name: "Borrar" }).click();
   await expect(page.getByText("1 capítulo ya leído")).toBeHidden();
 });
+
+test("paged mode: tap through a chapter and finish it", async ({ page }) => {
+  await login(page);
+  await page.goto("/search?q=Demo%20Paged");
+  await page.getByRole("button", { name: /Demo Paged/ }).first().click();
+  await page.waitForURL(/\/series\/\d+/);
+  await page.getByRole("link", { name: /Leer|Empezar/ }).first().click();
+  await page.waitForURL(/\/read\/\d+/);
+  // Not tagged as a long strip and pages are page-shaped → paged mode.
+  await expect(page.locator('img[alt="Página 1"]')).toBeVisible();
+  const saved = page.waitForRequest((r) => r.url().endsWith("/api/progress") && r.postDataJSON()?.completed === true);
+  const { width, height } = page.viewportSize()!;
+  for (let i = 0; i < 5; i++) {
+    await page.mouse.click(width - 20, height / 2); // right third = next (LTR) / previous (RTL)
+    await page.waitForTimeout(150);
+  }
+  // Auto mode may pick RTL for manga; then the left third goes forward.
+  if (!(await page.getByRole("button", { name: /Seguir leyendo/ }).isVisible())) {
+    for (let i = 0; i < 10; i++) {
+      await page.mouse.click(20, height / 2);
+      await page.waitForTimeout(150);
+    }
+  }
+  await saved;
+  await expect(page.getByRole("button", { name: /Seguir leyendo/ })).toBeInViewport();
+});
