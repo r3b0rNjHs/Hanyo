@@ -85,6 +85,12 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE series ADD COLUMN linked_against TEXT;
   `,
+  // v4: reading lists. Library series never opened in the reader start as "plan to read".
+  `
+  ALTER TABLE series ADD COLUMN shelf TEXT NOT NULL DEFAULT 'reading';
+  UPDATE series SET shelf = 'plan'
+    WHERE id NOT IN (SELECT series_id FROM read_marks) AND id NOT IN (SELECT series_id FROM resume_points);
+  `,
 ];
 
 export function openDb(dataDir: string): DB {

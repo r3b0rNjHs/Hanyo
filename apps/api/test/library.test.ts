@@ -142,6 +142,20 @@ describe("LibraryService", () => {
     expect(ctx.nextId).toBe(merged[4]!.id);
   });
 
+  it("keeps reading lists and moves planned series to reading once opened", async () => {
+    const { library } = setup();
+    const id = await library.open("mangadex", "md-1");
+    library.setShelf(id, "plan");
+    expect(library.listLibrary().map((s) => [s.id, s.shelf])).toEqual([[id, "plan"]]);
+
+    library.saveProgress(library.mergedChapters(id)[0]!.id, 2, false);
+    expect(library.detailFromDb(id)!.shelf).toBe("reading");
+
+    library.setShelf(id, "completed");
+    library.saveProgress(library.mergedChapters(id)[1]!.id, 0, true);
+    expect(library.detailFromDb(id)!.shelf).toBe("completed");
+  });
+
   it("re-opening the same source entry reuses the series", async () => {
     const { library } = setup();
     const a = await library.open("mangadex", "md-1");

@@ -136,6 +136,16 @@ export function createApp(d: AppDeps): Hono {
     return c.json(d.library.detailFromDb(id));
   });
 
+  app.post("/series/:id/shelf", async (c) => {
+    const id = intParam(c, "id");
+    const { shelf } = z.object({ shelf: z.enum(["reading", "plan", "paused", "completed"]) }).parse(await c.req.json());
+    const wasIn = d.library.detailFromDb(id)?.inLibrary;
+    if (wasIn === undefined) return c.json<ApiError>({ error: "Not found" }, 404);
+    d.library.setShelf(id, shelf);
+    if (!wasIn) void d.updates.autoLink(id).catch((e) => log(`autolink ${id} failed: ${e}`));
+    return c.json(d.library.detailFromDb(id));
+  });
+
   app.post("/series/:id/refresh", async (c) => {
     const id = intParam(c, "id");
     const res = await d.library.refresh(id);
