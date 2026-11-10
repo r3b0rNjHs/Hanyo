@@ -18,6 +18,7 @@
     type ReadingMode,
   } from "$lib/reader/settings.svelte";
   import { chapterLabel } from "$lib/format";
+  import { connection } from "$lib/connection.svelte";
 
   const chapterId = $derived(Number(page.params.chapterId));
 
@@ -94,10 +95,11 @@
     }).catch(() => null);
   }
 
-  function cycleMode() {
-    if (!data) return;
-    const order: ReadingMode[] = ["vertical", "rtl", "ltr"];
-    mode = order[(order.indexOf(mode) + 1) % order.length]!;
+  let settingsOpen = $state(false);
+
+  function setMode(next: ReadingMode) {
+    if (!data || next === mode) return;
+    mode = next;
     setSeriesMode(data.seriesId, mode);
     autoMode = false;
   }
@@ -143,7 +145,11 @@
     };
   });
 
-  const modeLabel: Record<ReadingMode, string> = { vertical: "Vertical", rtl: "Páginas ←", ltr: "Páginas →" };
+  const modes: Array<[ReadingMode, string]> = [
+    ["vertical", "Vertical"],
+    ["rtl", "Páginas ←"],
+    ["ltr", "Páginas →"],
+  ];
   const nextIsDownloaded = $derived(data?.nextChapterId ? downloads.isDownloaded(data.nextChapterId) : false);
 </script>
 
@@ -160,23 +166,38 @@
     <div class="flex min-h-dvh items-center justify-center"><Spinner size={28} /></div>
   {:else}
     {#snippet transition()}
-      <div class="mx-auto w-full max-w-sm px-6 py-16 text-center">
-        <p class="text-sm text-ink-400">Has terminado</p>
-        <p class="mt-1 text-lg font-semibold text-ink-100">{chapterLabel(data!.chapterNumber, data!.chapterTitle)}</p>
+      <div class="mx-auto flex w-full max-w-sm flex-col gap-4 px-5 pt-8 pb-28">
+        <p class="flex items-center gap-2.5 text-sm text-soft">
+          <span class="flex h-7 w-7 items-center justify-center rounded-full bg-ok text-on-accent"><Icon name="check" size={16} stroke={3} /></span>
+          {chapterLabel(data!.chapterNumber, data!.chapterTitle)} terminado
+        </p>
         {#if data!.nextChapterId}
           <button
-            class="mt-6 w-full rounded-xl bg-gradient-to-r from-hanji-300 to-hanji-500 py-3.5 font-semibold text-ink-950"
+            class="flex flex-col gap-3.5 rounded-[var(--radius-panel)] border border-line bg-surface p-[18px] text-left"
             onclick={(e) => { e.stopPropagation(); void goChapter(data!.nextChapterId); }}
           >
-            Siguiente capítulo
+            <span class="text-xs font-semibold tracking-[0.08em] text-muted uppercase">Siguiente</span>
+            <span class="flex items-center gap-3.5">
+              <span class="font-display flex h-[86px] w-16 shrink-0 items-end rounded-[14px] bg-accent p-2 text-xl font-bold text-on-accent">{data!.nextChapterNumber ?? "→"}</span>
+              <span class="flex flex-col gap-1">
+                <span class="font-display text-2xl font-bold tracking-tight">{chapterLabel(data!.nextChapterNumber)}</span>
+                <span class="text-[13px] text-muted">{nextIsDownloaded ? "Descargado · disponible sin conexión" : connection.online ? "Se cargará online" : "No descargado"}</span>
+              </span>
+            </span>
+            <span class="flex h-[52px] items-center justify-center gap-2 rounded-full bg-accent font-bold text-on-accent">
+              Seguir leyendo <Icon name="arrowRight" size={18} stroke={2.4} />
+            </span>
           </button>
-          {#if !navigator.onLine && !nextIsDownloaded}
-            <p class="mt-2 text-xs text-ink-400">El siguiente no está descargado y no hay conexión.</p>
+          {#if !connection.online && !nextIsDownloaded}
+            <p class="text-center text-xs text-muted">Sin conexión y el siguiente no está descargado.</p>
           {/if}
         {:else}
-          <p class="mt-6 text-sm text-ink-400">Estás al día. Te avisaremos cuando salga el siguiente.</p>
+          <div class="rounded-[var(--radius-panel)] bg-surface p-5 text-center">
+            <p class="font-display text-xl font-bold">Estás al día</p>
+            <p class="mt-1 text-sm text-muted">Te avisaremos cuando salga el siguiente capítulo.</p>
+          </div>
         {/if}
-        <a href="/series/{data!.seriesId}" class="mt-3 block py-2 text-sm text-ink-400" onclick={(e) => e.stopPropagation()}>Volver a la serie</a>
+        <a href="/series/{data!.seriesId}" class="py-2 text-center text-sm text-muted" onclick={(e) => e.stopPropagation()}>Volver a la serie</a>
       </div>
     {/snippet}
 
@@ -214,64 +235,74 @@
       <div class="pointer-events-none fixed inset-0 z-10 bg-black" style="opacity: {1 - readerSettings.brightness}"></div>
     {/if}
 
-    <!-- Top bar -->
-    <div
-      class="pt-safe fixed inset-x-0 top-0 z-20 bg-ink-950/90 backdrop-blur-xl transition-transform duration-200 {uiVisible ? '' : '-translate-y-full'}"
-    >
-      <div class="flex items-center gap-1 px-1 py-1.5">
-        <a href="/series/{data.seriesId}" class="flex h-11 w-11 items-center justify-center" aria-label="Volver a la serie">
-          <Icon name="back" size={24} />
+    <!-- Top pill -->
+    <div class="pt-safe fixed inset-x-4 top-0 z-20 transition-all duration-200 {uiVisible ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-4 opacity-0'}">
+      <div class="mt-2 flex h-[52px] items-center gap-1 rounded-full border border-line bg-raised/95 px-1 shadow-[0_10px_24px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+        <a href="/series/{data.seriesId}" class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full" aria-label="Volver a la serie">
+          <Icon name="back" size={22} stroke={2.2} />
         </a>
-        <div class="min-w-0 flex-1">
-          <p class="truncate text-[15px] font-semibold">{data.seriesTitle}</p>
-          <p class="truncate text-xs text-ink-400">{chapterLabel(data.chapterNumber, data.chapterTitle)} · {data.sourceName}</p>
-        </div>
-        <button class="flex h-11 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-ink-200 active:bg-white/10" onclick={cycleMode}>
-          <Icon name={mode === "vertical" ? "vertical" : "paged"} size={18} />
-          {modeLabel[mode]}
+        <p class="min-w-0 flex-1 truncate text-sm font-semibold">
+          {data.seriesTitle} <span class="font-normal text-muted">· {chapterLabel(data.chapterNumber, data.chapterTitle).replace("Capítulo", "Cap.")}</span>
+        </p>
+        <span class="shrink-0 rounded-xl bg-line px-2.5 py-1 text-xs font-semibold text-soft tabular-nums">{current + 1}/{data.pages.length}</span>
+        <button class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full" onclick={() => (settingsOpen = true)} aria-label="Ajustes de lectura">
+          <Icon name="sliders" size={20} stroke={2} />
         </button>
       </div>
     </div>
 
-    <!-- Bottom bar -->
-    <div
-      class="pb-safe fixed inset-x-0 bottom-0 z-20 bg-ink-950/90 backdrop-blur-xl transition-transform duration-200 {uiVisible ? '' : 'translate-y-full'}"
-    >
-      <div class="flex items-center gap-2 px-2 py-2">
-        <button
-          class="flex h-10 w-10 items-center justify-center rounded-full disabled:opacity-30"
-          disabled={!data.prevChapterId}
-          onclick={() => goChapter(data!.prevChapterId)}
-          aria-label="Capítulo anterior"
-        >
-          <Icon name="back" size={22} />
+    <!-- Bottom pill -->
+    <div class="fixed inset-x-4 z-20 transition-all duration-200 {uiVisible ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-4 opacity-0'}" style="bottom: calc(var(--safe-bottom) + 12px)">
+      <div class="flex h-14 items-center gap-1 rounded-full border border-line bg-raised/95 px-1 shadow-[0_10px_24px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+        <button class="flex h-11 w-11 items-center justify-center rounded-full disabled:opacity-30" disabled={!data.prevChapterId} onclick={() => goChapter(data!.prevChapterId)} aria-label="Capítulo anterior">
+          <Icon name="back" size={22} stroke={2.2} />
         </button>
-        <span class="w-9 text-right text-xs text-ink-400 tabular-nums">{current + 1}</span>
         <input
           type="range"
           min="0"
           max={data.pages.length - 1}
           value={current}
           oninput={(e) => view?.jumpTo(Number((e.currentTarget as HTMLInputElement).value))}
-          class="flex-1 accent-hanji-400"
+          class="mx-1 min-w-0 flex-1 accent-[var(--color-accent)]"
           style={mode === "rtl" ? "direction: rtl" : ""}
           aria-label="Página"
         />
-        <span class="w-9 text-xs text-ink-400 tabular-nums">{data.pages.length}</span>
-        <button
-          class="flex h-10 w-10 items-center justify-center rounded-full disabled:opacity-30"
-          disabled={!data.nextChapterId}
-          onclick={() => goChapter(data!.nextChapterId)}
-          aria-label="Capítulo siguiente"
-        >
-          <Icon name="back" size={22} class="rotate-180" />
+        <button class="flex h-11 w-11 items-center justify-center rounded-full disabled:opacity-30" disabled={!data.nextChapterId} onclick={() => goChapter(data!.nextChapterId)} aria-label="Capítulo siguiente">
+          <Icon name="chevronRight" size={22} stroke={2.2} />
         </button>
       </div>
     </div>
 
     {#if readerSettings.showPageNumber && !uiVisible}
-      <div class="pb-safe pointer-events-none fixed right-3 bottom-2 z-20 rounded-full bg-black/60 px-2 py-0.5 text-[11px] text-white/80 tabular-nums">
+      <div class="pointer-events-none fixed right-3 z-20 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-semibold text-white/85 tabular-nums" style="bottom: calc(var(--safe-bottom) + 10px)">
         {current + 1}/{data.pages.length}
+      </div>
+    {/if}
+
+    <!-- Quick settings sheet -->
+    {#if settingsOpen}
+      <button class="fixed inset-0 z-40 bg-black/50" onclick={() => (settingsOpen = false)} aria-label="Cerrar ajustes"></button>
+      <div class="pb-safe fixed inset-x-0 bottom-0 z-50 rounded-t-[28px] bg-raised px-5 pt-5" role="dialog" aria-label="Ajustes de lectura">
+        <p class="font-display text-lg font-semibold">Lectura</p>
+        <p class="mt-4 text-xs font-semibold tracking-[0.08em] text-muted uppercase">Modo</p>
+        <div class="mt-2 grid grid-cols-3 gap-1.5 rounded-2xl bg-base p-1">
+          {#each modes as [m, label] (m)}
+            <button
+              class="h-10 rounded-xl text-[13px] font-semibold {mode === m ? 'bg-accent text-on-accent' : 'text-soft'}"
+              aria-pressed={mode === m}
+              onclick={() => setMode(m)}
+            >{label}</button>
+          {/each}
+        </div>
+        <p class="mt-1.5 text-xs text-muted">Se recuerda para esta serie.</p>
+        <label class="mt-5 block">
+          <span class="flex justify-between text-xs font-semibold tracking-[0.08em] text-muted uppercase"><span>Brillo</span><span class="tabular-nums">{Math.round(readerSettings.brightness * 100)}%</span></span>
+          <span class="mt-2 flex items-center gap-3">
+            <Icon name="sun" size={18} class="text-muted" />
+            <input type="range" min="0.3" max="1" step="0.05" bind:value={readerSettings.brightness} class="flex-1 accent-[var(--color-accent)]" />
+          </span>
+        </label>
+        <button class="mt-5 mb-4 h-12 w-full rounded-full bg-line font-semibold" onclick={() => (settingsOpen = false)}>Listo</button>
       </div>
     {/if}
   {/if}
