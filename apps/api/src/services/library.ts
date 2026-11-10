@@ -1,6 +1,7 @@
 import type {
   ChapterSummary,
   FeedItem,
+  HistoryItem,
   ResumePoint,
   SeriesDetail,
   SeriesSourceLink,
@@ -274,6 +275,33 @@ export class LibraryService {
       }
     }
     return items.sort((a, b) => b.chapter.publishedAt! - a.chapter.publishedAt!).slice(0, limit);
+  }
+
+  history(limit = 60): HistoryItem[] {
+    return this.db
+      .prepare<
+        [number],
+        { series_id: number; title: string; cover_url: string | null; chapter_id: number; number: number | null; page: number; updated_at: number }
+      >(
+        `SELECT r.series_id, s.title, s.cover_url, r.chapter_id, c.number, r.page, r.updated_at
+         FROM resume_points r JOIN series s ON s.id = r.series_id JOIN chapters c ON c.id = r.chapter_id
+         ORDER BY r.updated_at DESC LIMIT ?`,
+      )
+      .all(limit)
+      .map((r) => ({
+        seriesId: r.series_id,
+        seriesTitle: r.title,
+        coverUrl: r.cover_url,
+        chapterId: r.chapter_id,
+        chapterNumber: r.number,
+        page: r.page,
+        readAt: r.updated_at,
+      }));
+  }
+
+  /** Remove a series from the history (forgets the resume point, keeps read marks). */
+  forgetResume(seriesId: number): void {
+    this.db.prepare("DELETE FROM resume_points WHERE series_id = ?").run(seriesId);
   }
 
   inLibraryIds(): number[] {

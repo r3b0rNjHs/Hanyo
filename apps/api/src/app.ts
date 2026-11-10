@@ -268,6 +268,11 @@ export function createApp(d: AppDeps): Hono {
   app.get("/library", (c) => c.json(d.library.listLibrary()));
   app.get("/library/links", (c) => c.json(d.library.libraryLinks()));
   app.get("/feed", (c) => c.json(d.library.feed()));
+  app.get("/history", (c) => c.json(d.library.history()));
+  app.delete("/history/:id", (c) => {
+    d.library.forgetResume(intParam(c, "id"));
+    return c.json({ ok: true });
+  });
 
   app.get("/server/stats", async (c) =>
     c.json<ServerStats>({
