@@ -14,6 +14,7 @@
 
   const tabs = [
     { href: "/", label: "Biblioteca", icon: "library" },
+    { href: "/explore", label: "Explorar", icon: "compass" },
     { href: "/search", label: "Buscar", icon: "search" },
     { href: "/downloads", label: "Descargas", icon: "download" },
     { href: "/settings", label: "Ajustes", icon: "settings" },
