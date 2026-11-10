@@ -7,6 +7,8 @@ import type { LibraryService } from "./library.js";
 
 /** Upstream page URLs can expire (MangaDex at-home ~15 min), so we only keep them briefly. */
 const PAGE_LIST_TTL_MS = 10 * 60_000;
+/** How long a source whose images are blocked for the server is skipped before retrying it. */
+const BLOCK_MEMORY_MS = 60 * 60_000;
 
 export class PageService {
   private readonly lists = new Map<number, { at: number; urls: string[] }>();
@@ -25,30 +27,63 @@ export class PageService {
   /**
    * Page list for a chapter, from the first source that can actually deliver its images.
    *
-   * Some image hosts block the server (e.g. Weeb Central's CDN rejects OVH IPs through
-   * Cloudflare) even though the chapter list loads fine. So before answering we fetch the
-   * first page (it is cached, the reader needs it anyway); if that fails we try the same
-   * chapter number on the series' other sources. The returned `chapterId` is the one that
-   * worked; progress is stored by chapter number, so switching is invisible to the reader.
+   * Some image hosts block the server (Weeb Central's CDN rejects OVH via Cloudflare on IPv4
+   * and IPv6) even though the chapter list loads fine. In order of preference:
+   *  1. through the server (cached, re-encoded, works for every client): the chapter's own
+   *     source, then the same chapter number on the series' other sources. The first page is
+   *     fetched before answering (it is cached; the reader needs it anyway);
+   *  2. direct: the source's own image URLs, loaded by the phone (home/mobile IPs aren't blocked).
+   * A source whose images fail through the server is remembered for an hour, so later chapters
+   * skip straight to what works. Progress is per chapter number, so switching is invisible.
    */
   async chapterPages(chapterId: number): Promise<ChapterPages | null> {
     const candidates = this.library.chapterCandidates(chapterId);
     if (candidates.length === 0) return null;
     const failures: string[] = [];
+
     for (const c of candidates) {
+      const sourceKey = this.sourceKeyOf(c.id);
+      if (this.isBlocked(sourceKey)) {
+        failures.push(`${c.sourceName}: bloqueada (Cloudflare)`);
+        continue;
+      }
       try {
         const urls = await this.upstreamUrls(c.id);
         if (urls.length === 0) throw new Error("no devolvió páginas");
         await this.original(c.id, 0);
-        return this.build(c.id, urls);
+        return this.build(c.id, urls, false);
       } catch (e) {
-        failures.push(`${c.sourceName}: ${describe(e)}`);
+        const reason = describe(e);
+        if (reason.startsWith("bloqueada")) this.blocked.set(sourceKey, Date.now() + BLOCK_MEMORY_MS);
+        failures.push(`${c.sourceName}: ${reason}`);
+      }
+    }
+
+    for (const c of candidates) {
+      const { provider, sourceId, externalId } = this.providerFor(c.id);
+      if (!provider.directPageUrls) continue;
+      try {
+        const urls = await provider.directPageUrls(sourceId, externalId);
+        if (urls && urls.length > 0) return this.build(c.id, urls, true);
+      } catch (e) {
+        failures.push(`${c.sourceName} (directo): ${describe(e)}`);
       }
     }
     throw new SourceUnavailableError(failures);
   }
 
-  private build(chapterId: number, urls: string[]): ChapterPages {
+  private readonly blocked = new Map<string, number>();
+
+  private isBlocked(sourceKey: string): boolean {
+    const until = this.blocked.get(sourceKey);
+    return until !== undefined && until > Date.now();
+  }
+
+  private sourceKeyOf(chapterId: number): string {
+    return this.library.chapterContext(chapterId)!.link.source_key;
+  }
+
+  private build(chapterId: number, urls: string[], direct: boolean): ChapterPages {
     const ctx = this.library.chapterContext(chapterId)!;
     const basics = this.library.seriesBasics(ctx.link.series_id);
     return {
@@ -60,7 +95,8 @@ export class PageService {
       chapterTitle: ctx.chapter.title,
       sourceName: ctx.link.source_name,
       resumePage: basics.resume?.chapterId === chapterId ? basics.resume.page : null,
-      pages: urls.map((_, i) => `/api/chapters/${chapterId}/pages/${i}`),
+      pages: direct ? urls : urls.map((_, i) => `/api/chapters/${chapterId}/pages/${i}`),
+      direct,
       prevChapterId: ctx.prevId,
       nextChapterId: ctx.nextId,
       nextChapterNumber: ctx.nextNumber,

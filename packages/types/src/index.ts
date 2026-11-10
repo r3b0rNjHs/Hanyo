@@ -120,8 +120,13 @@ export interface ChapterPages {
   sourceName: string;
   /** Page index to resume at when this chapter is the series' resume point. */
   resumePage: number | null;
-  /** Same-origin URLs (/api/chapters/:id/pages/:n). Stable, so they can be cached offline. */
+  /**
+   * Same-origin URLs (/api/chapters/:id/pages/:n), stable so they can be cached offline.
+   * When `direct` is true they are the source's own image URLs instead: its image host blocks
+   * the server, so the phone loads them itself (no re-encoding, opaque when downloaded).
+   */
   pages: string[];
+  direct: boolean;
   prevChapterId: number | null;
   nextChapterId: number | null;
   /** Number of the next chapter in the merged list (sources often skip numbers). */
