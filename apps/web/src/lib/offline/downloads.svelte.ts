@@ -175,8 +175,10 @@ class DownloadManager {
         let res = await cache.match(url);
         if (!res) {
           // Ask for the re-encoded (~80% smaller) version but store it under the plain URL,
-          // which is what the reader and the service worker look up.
-          res = await fetchWithRetry(`${url}?compact=1`);
+          // which is what the reader and the service worker look up. Direct pages come from
+          // the source's CDN, which sends no CORS headers: they are stored as opaque responses
+          // (readable by <img>, size unknown).
+          res = list.direct ? await fetchDirect(url) : await fetchWithRetry(`${url}?compact=1`);
           const blob = await res.clone().blob();
           bytes += blob.size;
           await cache.put(url, res);
@@ -220,6 +222,19 @@ async function persistJobs(jobs: Job[]): Promise<void> {
       }),
     ),
   );
+}
+
+async function fetchDirect(url: string, tries = 3): Promise<Response> {
+  let last: unknown;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fetch(url, { mode: "no-cors", referrerPolicy: "no-referrer" });
+    } catch (e) {
+      last = e;
+      await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+    }
+  }
+  throw last instanceof Error ? last : new Error("descarga fallida");
 }
 
 async function fetchWithRetry(url: string, tries = 3): Promise<Response> {

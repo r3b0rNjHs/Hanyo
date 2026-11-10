@@ -46,6 +46,11 @@ export interface Provider {
   fetchImage(url: string): Promise<{ bytes: Buffer; contentType: string }>;
   /** Hosts this provider may serve images from (guards the image proxy). */
   allowsImageUrl(url: string): boolean;
+  /**
+   * Image URLs the phone can load itself, for sources whose image host blocks the server.
+   * Returns null when the source has no such mode.
+   */
+  directPageUrls?(sourceId: string, chapterExternalId: string): Promise<string[] | null>;
 }
 
 export function sourceKey(provider: Provider["id"], sourceId: string): string {

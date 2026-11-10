@@ -15,6 +15,11 @@ const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3
 /** A source whose chapter list works; its images either load or are blocked like a Cloudflare ban. */
 class Source implements Provider {
   imageCalls = 0;
+  /** Set to give the source a direct mode (image URLs the phone loads itself). */
+  direct: string[] | null = null;
+  async directPageUrls(): Promise<string[] | null> {
+    return this.direct;
+  }
   constructor(
     readonly id: "mangadex" | "suwayomi",
     private readonly info: SourceInfo,
@@ -116,5 +121,44 @@ describe("PageService source fallback", () => {
     expect(res.chapterId).toBe(ch.id);
     expect(res.sourceName).toBe("MangaDex");
     expect(blocked.imageCalls).toBe(0);
+  });
+});
+
+describe("PageService direct mode", () => {
+  it("hands the phone the source's own image URLs when its host blocks the server", async () => {
+    const { library, pages, blocked } = setup({ blockedHasEverything: true, otherSourceHas: [115] });
+    blocked.direct = ["https://official.lowee.us/manga/QUESTISM/0032-001.png", "https://official.lowee.us/manga/QUESTISM/0032-002.png"];
+    const id = await library.open("suwayomi:1", "wc");
+    const ch32 = library.mergedChapters(id).find((c) => c.number === 32)!;
+
+    const res = (await pages.chapterPages(ch32.id))!;
+    expect(res.direct).toBe(true);
+    expect(res.chapterId).toBe(ch32.id);
+    expect(res.pages[0]).toBe("https://official.lowee.us/manga/QUESTISM/0032-001.png");
+  });
+
+  it("prefers another source through the server over direct mode", async () => {
+    const { library, pages, blocked } = setup({ blockedHasEverything: true, otherSourceHas: [32] });
+    blocked.direct = ["https://cdn.example/1.png"];
+    const id = await library.open("suwayomi:1", "wc");
+    await library.linkSource(id, "mangadex", "md");
+    const ch32 = library.chapterCandidates(library.mergedChapters(id).find((c) => c.number === 32)!.id);
+    const wcChapter = ch32.find((c) => c.sourceName === "Weeb Central")!;
+    const res = (await pages.chapterPages(wcChapter.id))!;
+    expect(res.direct).toBe(false);
+    expect(res.sourceName).toBe("MangaDex");
+  });
+
+  it("remembers a blocked source and skips it for the next chapters", async () => {
+    const { library, pages, blocked } = setup({ blockedHasEverything: true, otherSourceHas: [115] });
+    blocked.direct = ["https://cdn.example/1.png"];
+    const id = await library.open("suwayomi:1", "wc");
+    const [c31, c32] = library.mergedChapters(id).filter((c) => c.number === 31 || c.number === 32);
+    await pages.chapterPages(c31!.id);
+    const callsAfterFirst = blocked.imageCalls;
+    expect(callsAfterFirst).toBeGreaterThan(0);
+    const res = (await pages.chapterPages(c32!.id))!;
+    expect(res.direct).toBe(true);
+    expect(blocked.imageCalls).toBe(callsAfterFirst);
   });
 });

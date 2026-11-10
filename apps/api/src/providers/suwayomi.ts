@@ -2,6 +2,7 @@ import type { SeriesStatus, SourceInfo } from "@hanyo/types";
 import { fetchOk } from "../lib/http.js";
 import { RateLimiter } from "../lib/ratelimit.js";
 import { parseChapterNumber } from "../lib/text.js";
+import { DIRECT_SOURCES, type DirectImageSource } from "./direct.js";
 import type { Provider, RawChapter, RawHit, RawSeries } from "./types.js";
 
 /**
@@ -21,6 +22,7 @@ export class SuwayomiProvider implements Provider {
     private readonly baseUrl: string,
     private readonly allowedSourceIds: string[] = [],
     private readonly lang = "en",
+    private readonly directSources: DirectImageSource[] = DIRECT_SOURCES,
   ) {}
 
   async listSources(): Promise<SourceInfo[]> {
@@ -128,6 +130,17 @@ export class SuwayomiProvider implements Provider {
       { id: Number.parseInt(chapterExternalId, 10) },
     );
     return data.fetchChapterPages.pages.map((p) => this.abs(p));
+  }
+
+  async directPageUrls(sourceId: string, chapterExternalId: string): Promise<string[] | null> {
+    const name = (await this.listSources()).find((s) => s.sourceId === sourceId)?.name;
+    const direct = this.directSources.find((d) => d.sourceName === name);
+    if (!direct) return null;
+    const data = await this.gql<{ chapter: { url: string; realUrl: string | null } }>(
+      `query($id: Int!) { chapter(id: $id) { url realUrl } }`,
+      { id: Number.parseInt(chapterExternalId, 10) },
+    );
+    return direct.pageUrls(data.chapter.realUrl ?? data.chapter.url);
   }
 
   async fetchImage(url: string): Promise<{ bytes: Buffer; contentType: string }> {

@@ -35,7 +35,13 @@ sw.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
-  if (url.origin !== sw.location.origin) return;
+  if (url.origin !== sw.location.origin) {
+    // Direct pages (a source's own CDN) that were downloaded live in the pages cache.
+    if (req.destination === "image") {
+      event.respondWith(caches.match(req.url, { cacheName: PAGES_CACHE }).then((hit) => hit ?? fetch(req)));
+    }
+    return;
+  }
 
   // Downloaded chapter pages: cache only if downloaded, otherwise straight to network.
   if (PAGE_RE.test(url.pathname)) {
