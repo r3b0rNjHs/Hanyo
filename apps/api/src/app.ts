@@ -212,6 +212,13 @@ export function createApp(d: AppDeps): Hono {
     return c.json(d.library.detailFromDb(id));
   });
 
+  app.post("/series/:id/notify", async (c) => {
+    const id = intParam(c, "id");
+    const { enabled } = z.object({ enabled: z.boolean() }).parse(await c.req.json());
+    d.library.setNotify(id, enabled);
+    return c.json(d.library.detailFromDb(id));
+  });
+
   app.post("/series/:id/autodownload", async (c) => {
     const id = intParam(c, "id");
     const { enabled } = z.object({ enabled: z.boolean() }).parse(await c.req.json());

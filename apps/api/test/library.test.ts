@@ -196,6 +196,14 @@ describe("LibraryService", () => {
     ]);
   });
 
+  it("notifies new chapters per series, on by default", async () => {
+    const { library } = setup();
+    const id = await library.open("mangadex", "md-1");
+    expect(library.detailFromDb(id)!.notify).toBe(true);
+    library.setNotify(id, false);
+    expect(library.notifyEnabled(id)).toBe(false);
+  });
+
   it("stores the automatic download flag per series", async () => {
     const { library } = setup();
     const id = await library.open("mangadex", "md-1");

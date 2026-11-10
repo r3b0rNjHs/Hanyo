@@ -196,3 +196,16 @@ test("history shows where you left each series and can forget one", async ({ pag
   await row.getByText("Quitar").click();
   await expect(page.locator("li", { hasText: "Demo Strip" })).toHaveCount(0);
 });
+
+test("turn off new-chapter notifications for one series", async ({ page }) => {
+  await login(page);
+  await page.goto("/");
+  await openSeries(page, "Demo Strip");
+  const bell = page.getByRole("button", { name: /Avisos de capítulos nuevos/ });
+  await expect(bell).toHaveAttribute("aria-pressed", "true");
+  await bell.click();
+  await expect(page.getByText("Sin avisos para esta serie")).toBeVisible();
+  await expect(bell).toHaveAttribute("aria-pressed", "false");
+  await page.reload();
+  await expect(page.getByRole("button", { name: /Avisos de capítulos nuevos/ })).toHaveAttribute("aria-pressed", "false");
+});

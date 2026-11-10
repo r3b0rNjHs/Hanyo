@@ -53,7 +53,7 @@ export class UpdateService {
       const title = this.library.title(id) ?? "Serie";
       const sorted = newNumbers.sort((a, b) => a - b);
       const label = sorted.length === 1 ? `Capítulo ${sorted[0]}` : `${sorted.length} capítulos nuevos (hasta el ${sorted.at(-1)})`;
-      await this.push.notify({ title, body: label, url: `/series/${id}` });
+      if (this.library.notifyEnabled(id)) await this.push.notify({ title, body: label, url: `/series/${id}` });
       // Warm the server cache so the phone downloads fast and the chapter survives source outages.
       const merged = this.library.mergedChapters(id).filter((c) => c.number !== null && sorted.includes(c.number));
       for (const c of merged) {

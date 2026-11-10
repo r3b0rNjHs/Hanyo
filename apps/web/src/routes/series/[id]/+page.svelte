@@ -215,6 +215,14 @@
     return { done: ids.length, bytes, pending, ids };
   });
 
+  let notifyToast = $state<string | null>(null);
+  async function toggleNotify() {
+    if (!s) return;
+    s = await api.setNotify(s.id, !s.notify);
+    notifyToast = s.notify ? "Te avisaremos de los capítulos nuevos" : "Sin avisos para esta serie";
+    setTimeout(() => (notifyToast = null), 2200);
+  }
+
   async function toggleAuto() {
     if (!s) return;
     const enabled = !s.autoDownload;
@@ -253,6 +261,12 @@
     {#if error}<p class="px-6 text-center text-muted">{error}</p>{:else}<Spinner />{/if}
   </div>
 {:else}
+  {#if notifyToast}
+    <div class="pt-safe fixed inset-x-0 top-16 z-30 flex justify-center px-4" role="status">
+      <div class="rounded-full bg-raised px-4 py-2 text-sm font-medium shadow-lg">{notifyToast}</div>
+    </div>
+  {/if}
+
   <!-- Hero: the cover, full bleed -->
   <div class="relative h-[230px] overflow-hidden bg-accent">
     {#if s.coverUrl}
@@ -264,9 +278,22 @@
       <button class="flex h-11 w-11 items-center justify-center rounded-full bg-base/60 text-fg backdrop-blur-md" onclick={() => history.back()} aria-label="Atrás">
         <Icon name="back" size={22} stroke={2.2} />
       </button>
-      <button class="flex h-11 w-11 items-center justify-center rounded-full bg-base/60 text-fg backdrop-blur-md" onclick={refresh} aria-label="Actualizar capítulos" disabled={busy || offline}>
-        {#if busy}<Spinner size={18} />{:else}<Icon name="refresh" size={19} stroke={2.2} />{/if}
-      </button>
+      <div class="flex gap-2">
+        {#if s.inLibrary}
+          <button
+            class="flex h-11 w-11 items-center justify-center rounded-full bg-base/60 backdrop-blur-md {s.notify ? 'text-fg' : 'text-muted'}"
+            onclick={toggleNotify}
+            disabled={offline}
+            aria-pressed={s.notify}
+            aria-label={s.notify ? "Avisos de capítulos nuevos activados" : "Avisos de capítulos nuevos desactivados"}
+          >
+            <Icon name={s.notify ? "bell" : "bellOff"} size={19} stroke={2.2} />
+          </button>
+        {/if}
+        <button class="flex h-11 w-11 items-center justify-center rounded-full bg-base/60 text-fg backdrop-blur-md" onclick={refresh} aria-label="Actualizar capítulos" disabled={busy || offline}>
+          {#if busy}<Spinner size={18} />{:else}<Icon name="refresh" size={19} stroke={2.2} />{/if}
+        </button>
+      </div>
     </div>
   </div>
 

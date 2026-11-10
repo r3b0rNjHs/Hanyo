@@ -29,6 +29,7 @@ interface SeriesRow {
   lang: string;
   shelf: Shelf;
   auto_download: number;
+  notify: number;
 }
 
 /** "es-419" → "es"; multi-language ("all") sources are read as English. */
@@ -236,6 +237,14 @@ export class LibraryService {
          JOIN series se ON se.id = s.series_id WHERE se.in_library = 1`,
       ),
     };
+  }
+
+  setNotify(seriesId: number, enabled: boolean): void {
+    this.db.prepare("UPDATE series SET notify = ? WHERE id = ?").run(enabled ? 1 : 0, seriesId);
+  }
+
+  notifyEnabled(seriesId: number): boolean {
+    return this.row(seriesId)?.notify === 1;
   }
 
   setAutoDownload(seriesId: number, enabled: boolean): void {
@@ -571,6 +580,7 @@ export class LibraryService {
       inLibrary: row.in_library === 1,
       shelf: row.shelf,
       autoDownload: row.auto_download === 1,
+      notify: row.notify === 1,
       unreadCount: numbered.filter((c) => !c.read).length,
       latestChapter: numbered.length ? numbered[numbered.length - 1]!.number : null,
       lastReadChapter: lastRead,
