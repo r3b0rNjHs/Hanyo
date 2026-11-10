@@ -58,3 +58,9 @@ a WARP client container; Suwayomi uses it as a SOCKS5 proxy and FlareSolverr sha
 every source request and page image leaves through a consumer Cloudflare exit IP. hanyo-api keeps
 talking to MangaDex directly (MangaDex@Home reports need the real path). It is enabled per server via
 `COMPOSE_FILE` in `deploy/.env`, so it can be switched off without a code change.
+
+## ADR-011: Light theme as a token override
+Pulso stays dark by default (reading at night, OLED). The light variant only redefines the role
+tokens under `:root[data-theme="light"]` (and under `system` when the OS is light), with a deeper
+violet (#6A56EE) so accent text keeps contrast on white. An inline script in `app.html` applies the
+saved choice before first paint. The reader keeps its own background setting.
