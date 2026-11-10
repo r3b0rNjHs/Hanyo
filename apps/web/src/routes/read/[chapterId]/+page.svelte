@@ -158,9 +158,14 @@
 
 <div class="min-h-dvh" style="background: {backgroundColor[readerSettings.background]}">
   {#if error}
-    <div class="pt-safe flex min-h-dvh flex-col items-center justify-center gap-4 px-8 text-center">
-      <p class="text-soft">{error}</p>
-      <button class="h-11 rounded-full bg-raised px-5 text-sm font-semibold" onclick={() => history.back()}>Volver</button>
+    <div class="pt-safe flex min-h-dvh flex-col items-center justify-center px-8 text-center" role="alert">
+      <span class="flex h-16 w-16 items-center justify-center rounded-[var(--radius-card)] bg-raised text-fresh"><Icon name="cloudOff" size={30} stroke={2} /></span>
+      <p class="font-display mt-5 text-xl font-bold">No se pueden cargar las imágenes</p>
+      <p class="mt-2 text-sm text-muted">{error}</p>
+      <div class="mt-6 flex w-full max-w-xs flex-col gap-2.5">
+        <button class="h-12 rounded-full bg-accent font-bold text-on-accent" onclick={() => load(chapterId)}>Reintentar</button>
+        <button class="h-12 rounded-full bg-raised font-semibold" onclick={() => history.back()}>Volver a la serie</button>
+      </div>
     </div>
   {:else if !data}
     <div class="flex min-h-dvh items-center justify-center"><Spinner size={28} /></div>

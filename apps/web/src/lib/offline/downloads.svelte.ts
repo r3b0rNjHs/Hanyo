@@ -158,7 +158,10 @@ class DownloadManager {
 
   private async download(job: Job): Promise<void> {
     const listRes = await fetch(`/api/chapters/${job.chapterId}/pages`, { credentials: "same-origin" });
-    if (!listRes.ok) throw new Error(`no se pudo obtener la lista de páginas (${listRes.status})`);
+    if (!listRes.ok) {
+      const body = (await listRes.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(body?.error ?? `no se pudo obtener la lista de páginas (${listRes.status})`);
+    }
     const list = (await listRes.clone().json()) as ChapterPages;
     await (await caches.open(API_CACHE)).put(`/api/chapters/${job.chapterId}/pages`, listRes);
 
