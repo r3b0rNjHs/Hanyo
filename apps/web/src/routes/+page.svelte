@@ -99,8 +99,8 @@
     >
       {#if checking}<Spinner size={18} />{:else}<Icon name="refresh" size={20} stroke={2} />{/if}
     </button>
-    <a href="/search" class="flex h-11 w-11 items-center justify-center rounded-full bg-raised text-fg active:bg-line" aria-label="Buscar series">
-      <Icon name="search" size={20} stroke={2} />
+    <a href="/settings" class="flex h-11 w-11 items-center justify-center rounded-full bg-raised text-fg active:bg-line" aria-label="Ajustes">
+      <Icon name="settings" size={20} stroke={2} />
     </a>
   {/snippet}
 </PageHeader>

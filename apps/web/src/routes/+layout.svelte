@@ -9,23 +9,26 @@
   import { downloads } from "$lib/offline/downloads.svelte";
   import { flushProgressQueue } from "$lib/offline/progress-queue";
   import { runAutoDownloads } from "$lib/offline/auto-download";
+  import { feedBadge, refreshFeedBadge } from "$lib/feed-badge.svelte";
   import { connection } from "$lib/connection.svelte";
 
   let { children } = $props();
 
   const tabs = [
     { href: "/", label: "Biblioteca", icon: "library" },
+    { href: "/updates", label: "Novedades", icon: "bell" },
     { href: "/explore", label: "Explorar", icon: "compass" },
-    { href: "/search", label: "Buscar", icon: "search" },
     { href: "/downloads", label: "Descargas", icon: "download" },
-    { href: "/settings", label: "Ajustes", icon: "settings" },
   ] as const;
 
   const hideTabs = $derived(page.url.pathname.startsWith("/read/") || page.url.pathname === "/login");
 
   function isActive(href: string): boolean {
     const p = page.url.pathname;
-    return href === "/" ? p === "/" || p.startsWith("/series/") : p.startsWith(href);
+    // Search lives inside Explore; series pages and settings belong to the library.
+    if (href === "/") return p === "/" || p.startsWith("/series/") || p.startsWith("/settings");
+    if (href === "/explore") return p.startsWith("/explore") || p.startsWith("/search");
+    return p.startsWith(href);
   }
 
   onMount(() => {
@@ -49,9 +52,12 @@
     if (navigator.onLine) void flushProgressQueue();
     // Automatic downloads on open and when the app returns to the foreground (throttled).
     const auto = () => {
-      if (document.visibilityState === "visible" && !page.url.pathname.startsWith("/login")) void runAutoDownloads();
+      if (document.visibilityState !== "visible" || page.url.pathname.startsWith("/login")) return;
+      void runAutoDownloads();
+      void refreshFeedBadge();
     };
     setTimeout(auto, 3000);
+    if (!page.url.pathname.startsWith("/login")) void refreshFeedBadge();
     document.addEventListener("visibilitychange", auto);
     return () => {
       document.removeEventListener("visibilitychange", auto);
@@ -97,6 +103,9 @@
           >
             <Icon name={tab.icon} size={active ? 20 : 22} stroke={active ? 2.1 : 1.9} />
             {#if active}<span class="truncate">{tab.label}</span>{/if}
+            {#if tab.href === "/updates" && !active && feedBadge.unseen}
+              <span class="absolute top-3 right-[calc(50%-14px)] h-2 w-2 rounded-full bg-fresh" aria-label="Capítulos nuevos"></span>
+            {/if}
             {#if tab.href === "/downloads" && !active && (downloads.active || downloads.queue.length > 0)}
               <span class="absolute top-3 right-[calc(50%-14px)] h-2 w-2 rounded-full bg-fresh"></span>
             {/if}

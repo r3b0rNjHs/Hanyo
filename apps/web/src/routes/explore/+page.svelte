@@ -174,6 +174,14 @@
 
 <PageHeader title="Explorar" />
 
+<!-- Search lives here: one place to find something new. -->
+<a
+  href="/search"
+  class="mx-5 mb-3 flex h-12 items-center gap-2.5 rounded-full bg-surface px-4 text-[15px] text-muted active:bg-raised"
+>
+  <Icon name="search" size={18} stroke={2} /> Buscar en todas las fuentes…
+</a>
+
 <div role="tablist" aria-label="Fuente" class="no-scrollbar flex gap-2 overflow-x-auto px-5">
   <button
     role="tab"
