@@ -86,6 +86,7 @@ export const api = {
   autoLink: (id: number) => post<{ added: string[]; detail: SeriesDetail }>(`/series/${id}/autolink`, {}),
   recommendations: (id: number) => request<RecommendationsResponse>(`/series/${id}/recommendations`),
   setShelf: (id: number, shelf: Shelf) => post<SeriesDetail>(`/series/${id}/shelf`, { shelf }),
+  setNotify: (id: number, enabled: boolean) => post<SeriesDetail>(`/series/${id}/notify`, { enabled }),
   setAutoDownload: (id: number, enabled: boolean) => post<SeriesDetail>(`/series/${id}/autodownload`, { enabled }),
   setLang: (id: number, lang: string) => post<SeriesDetail>(`/series/${id}/lang`, { lang }),
   setSourcePriority: (id: number, linkId: number, priority: number) =>
