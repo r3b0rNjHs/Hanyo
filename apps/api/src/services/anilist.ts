@@ -12,10 +12,10 @@ const QUERY = `query ($search: String) {
   }
 }`;
 
-const TRENDING = `query ($page: Int, $country: CountryCode) {
+const TRENDING = `query ($page: Int, $country: CountryCode, $genre: String) {
   Page(page: $page, perPage: 30) {
     pageInfo { hasNextPage }
-    media(type: MANGA, sort: TRENDING_DESC, countryOfOrigin: $country) {
+    media(type: MANGA, sort: TRENDING_DESC, countryOfOrigin: $country, genre: $genre) {
       id countryOfOrigin popularity
       title { romaji english native }
       synonyms
@@ -52,15 +52,15 @@ export class AniListTitles {
   private readonly trendingCache = new Map<string, { at: number; value: TrendingResponse }>();
 
   /** AniList "trending" (recent activity), optionally by country of origin. Cached 30 min. */
-  async trending(origin: TrendingOrigin, page: number): Promise<TrendingResponse> {
-    const key = `${origin}|${page}`;
+  async trending(origin: TrendingOrigin, page: number, genre?: string): Promise<TrendingResponse> {
+    const key = `${origin}|${genre ?? ""}|${page}`;
     const hit = this.trendingCache.get(key);
     if (hit && Date.now() - hit.at < 30 * 60_000) return hit.value;
     const res = await this.limiter.schedule(() =>
       this.fetchImpl(ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ query: TRENDING, variables: { page, ...(origin === "all" ? {} : { country: origin }) } }),
+        body: JSON.stringify({ query: TRENDING, variables: { page, ...(origin === "all" ? {} : { country: origin }), ...(genre ? { genre } : {}) } }),
         signal: AbortSignal.timeout(8000),
       }),
     );

@@ -66,8 +66,10 @@ export const api = {
   explore: (source: string, kind: ExploreKind, page: number) =>
     request<ExploreResponse>(`/explore?source=${encodeURIComponent(source)}&kind=${kind}&page=${page}`),
 
-  trending: (origin: TrendingOrigin, page: number) =>
-    request<TrendingResponse>(`/explore/trending?origin=${origin}&page=${page}`),
+  trending: (origin: TrendingOrigin, page: number, genre?: string) =>
+    request<TrendingResponse>(
+      `/explore/trending?origin=${origin}&page=${page}${genre ? `&genre=${encodeURIComponent(genre)}` : ""}`,
+    ),
 
   searchMeta: (q: string, signal?: AbortSignal) =>
     request<SearchMetaResponse>(`/search/meta?q=${encodeURIComponent(q)}`, { signal }),
