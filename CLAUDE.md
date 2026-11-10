@@ -40,6 +40,7 @@ deploy/        setup.sh (one-shot VPS), deploy.sh (CI), docker-compose.yml, hany
 
 - `npm run dev` (API on :3101, uses `.env`) + `npm run dev:web` (Vite on :5173, proxies /api)
 - `npm run typecheck` · `npm test` · `npm run build`
+- E2E: `npm run build && npm run e2e -w apps/web` (Playwright, offline demo source `HANYO_DEMO_SOURCE=1`)
 - Local Suwayomi: `docker compose -f deploy/docker-compose.yml up -d`
 
 ## Workflow
