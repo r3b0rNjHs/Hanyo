@@ -22,6 +22,8 @@ _Last updated: 2026-11-09_
   series move to Leyendo when opened in the reader.
 - **Explore tab**: AniList trending by origin (manhwa / manga / manhua, opens a cross-source search) plus
   popular / latest per source and language; infinite scroll, cached server-side.
+- **Downloads on the series page**: one-tap per chapter, progress card, whole series / cancel / delete, and
+  per-series automatic download of the next 5 unread chapters whenever the app is opened.
 
 ## Not yet verified on real hardware
 - iOS Safari standalone: push, wake lock, memory behaviour with long strips.
