@@ -209,3 +209,11 @@ test("turn off new-chapter notifications for one series", async ({ page }) => {
   await page.reload();
   await expect(page.getByRole("button", { name: /Avisos de capítulos nuevos/ })).toHaveAttribute("aria-pressed", "false");
 });
+
+test("settings can check that the sources work", async ({ page }) => {
+  await login(page);
+  await page.goto("/settings");
+  await expect(page.getByText("Sin comprobar")).toBeVisible();
+  await page.getByRole("button", { name: "Comprobar" }).click();
+  await expect(page.getByText("Todas funcionan (1)")).toBeVisible({ timeout: 20_000 });
+});
