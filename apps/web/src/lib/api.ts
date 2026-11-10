@@ -67,6 +67,7 @@ export const api = {
   refreshSeries: (id: number) =>
     post<{ newNumbers: number[]; errors: string[]; detail: SeriesDetail }>(`/series/${id}/refresh`, {}),
   autoLink: (id: number) => post<{ added: string[]; detail: SeriesDetail }>(`/series/${id}/autolink`, {}),
+  setLang: (id: number, lang: string) => post<SeriesDetail>(`/series/${id}/lang`, { lang }),
   setSourcePriority: (id: number, linkId: number, priority: number) =>
     request<SeriesDetail>(`/series/${id}/sources/${linkId}`, { method: "PATCH", body: JSON.stringify({ priority }) }),
   unlinkSource: (id: number, linkId: number) =>
