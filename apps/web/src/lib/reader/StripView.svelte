@@ -13,7 +13,9 @@
   let {
     pages,
     initialPage = 0,
+    initialOffset = 0,
     onPage,
+    onOffset,
     onEnd,
     onTap,
     onRatio,
@@ -21,7 +23,11 @@
   }: {
     pages: string[];
     initialPage?: number;
+    /** Where inside the initial page to start (0–1), restored once that page has its real height. */
+    initialOffset?: number;
     onPage: (index: number) => void;
+    /** Position inside the current page (0–1) while scrolling. */
+    onOffset?: (offset: number) => void;
     onEnd: () => void;
     onTap: (zone: "prev" | "menu" | "next") => void;
     onRatio?: (index: number, ratio: number) => void;
@@ -41,11 +47,24 @@
 
   const mounted = (i: number) => i >= current - BEHIND && i <= current + AHEAD;
 
+  /** Pending intra-page restore; dropped as soon as the reader touches the screen. */
+  let pendingOffset = untrack(() => (initialOffset > 0.005 ? { index: initialPage, offset: initialOffset } : null));
+  const cancelPending = () => (pendingOffset = null);
+
+  async function restoreOffset(i: number) {
+    if (!pendingOffset || pendingOffset.index !== i) return;
+    const { offset } = pendingOffset;
+    pendingOffset = null;
+    await tick();
+    const r = slots[i]?.getBoundingClientRect();
+    if (r) window.scrollBy(0, r.top + offset * r.height);
+  }
+
   async function onLoad(i: number, img: HTMLImageElement) {
     if (!img.naturalWidth) return;
     const ratio = img.naturalHeight / img.naturalWidth;
     onRatio?.(i, ratio);
-    if (Math.abs(ratio - ratios[i]!) < 0.001) return;
+    if (Math.abs(ratio - ratios[i]!) < 0.001) return void restoreOffset(i);
     const el = slots[i];
     const before = el?.getBoundingClientRect();
     ratios[i] = ratio;
@@ -53,6 +72,7 @@
     if (el && before && before.bottom <= 0) {
       window.scrollBy(0, el.getBoundingClientRect().height - before.height);
     }
+    void restoreOffset(i);
   }
 
   let ticking = false;
@@ -68,6 +88,10 @@
       if (i !== current) {
         current = i;
         onPage(i);
+      }
+      if (!pendingOffset && onOffset) {
+        const r = slots[i]!.getBoundingClientRect();
+        onOffset(Math.min(1, Math.max(0, -r.top / r.height)));
       }
     });
   }
@@ -93,6 +117,8 @@
     if (initialPage > 0) jumpTo(initialPage);
     else window.scrollTo(0, 0);
     window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("touchstart", cancelPending, { passive: true, once: true });
+    window.addEventListener("wheel", cancelPending, { passive: true, once: true });
     const io = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) onEnd();
@@ -102,6 +128,8 @@
     io.observe(endSentinel);
     return () => {
       window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("touchstart", cancelPending);
+      window.removeEventListener("wheel", cancelPending);
       io.disconnect();
     };
   });

@@ -95,6 +95,10 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE series ADD COLUMN auto_download INTEGER NOT NULL DEFAULT 0;
   `,
+  // v6: position inside the resume page (webtoon pages are very tall).
+  `
+  ALTER TABLE resume_points ADD COLUMN page_offset REAL NOT NULL DEFAULT 0;
+  `,
 ];
 
 export function openDb(dataDir: string): DB {

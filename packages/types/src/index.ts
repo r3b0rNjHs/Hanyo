@@ -144,6 +144,8 @@ export interface ResumePoint {
   chapterId: number;
   chapterNumber: number | null;
   page: number;
+  /** How far into that page (0–1) the top of the screen was: long strips are one tall "page". */
+  offset: number;
 }
 
 export interface ChapterPages {
@@ -156,6 +158,8 @@ export interface ChapterPages {
   sourceName: string;
   /** Page index to resume at when this chapter is the series' resume point. */
   resumePage: number | null;
+  /** Position within the resume page (0–1), see ResumePoint.offset. */
+  resumeOffset: number | null;
   /**
    * Same-origin URLs (/api/chapters/:id/pages/:n), stable so they can be cached offline.
    * When `direct` is true they are the source's own image URLs instead: its image host blocks
@@ -172,6 +176,8 @@ export interface ChapterPages {
 export interface ProgressUpdate {
   chapterId: number;
   page: number;
+  /** Position within the page (0–1). */
+  offset?: number;
   completed: boolean;
 }
 

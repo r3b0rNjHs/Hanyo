@@ -381,7 +381,7 @@ export class LibraryService {
     return [self, ...others.map((o) => ({ id: o.id, sourceName: o.source_name }))];
   }
 
-  saveProgress(chapterId: number, page: number, completed: boolean): void {
+  saveProgress(chapterId: number, page: number, completed: boolean, offset = 0): void {
     const ctx = this.chapterContext(chapterId);
     if (!ctx) throw new Error("Chapter not found");
     const seriesId = ctx.link.series_id;
@@ -389,10 +389,17 @@ export class LibraryService {
     this.db.transaction(() => {
       this.db
         .prepare(
-          `INSERT INTO resume_points (series_id, chapter_id, page, updated_at) VALUES (?, ?, ?, ?)
-           ON CONFLICT(series_id) DO UPDATE SET chapter_id = excluded.chapter_id, page = excluded.page, updated_at = excluded.updated_at`,
+          `INSERT INTO resume_points (series_id, chapter_id, page, page_offset, updated_at) VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(series_id) DO UPDATE SET chapter_id = excluded.chapter_id, page = excluded.page,
+             page_offset = excluded.page_offset, updated_at = excluded.updated_at`,
         )
-        .run(seriesId, completed && ctx.nextId ? ctx.nextId : chapterId, completed ? 0 : page, now);
+        .run(
+          seriesId,
+          completed && ctx.nextId ? ctx.nextId : chapterId,
+          completed ? 0 : page,
+          completed ? 0 : Math.min(1, Math.max(0, offset)),
+          now,
+        );
       // Opening a planned or paused series in the reader means you're reading it now.
       this.db.prepare("UPDATE series SET shelf = 'reading' WHERE id = ? AND shelf IN ('plan', 'paused')").run(seriesId);
       if (completed && ctx.chapter.number !== null) {
@@ -450,14 +457,14 @@ export class LibraryService {
 
   private resume(seriesId: number): ResumePoint | null {
     const r = this.db
-      .prepare<[number], { chapter_id: number; page: number }>(
-        "SELECT chapter_id, page FROM resume_points WHERE series_id = ?",
+      .prepare<[number], { chapter_id: number; page: number; page_offset: number }>(
+        "SELECT chapter_id, page, page_offset FROM resume_points WHERE series_id = ?",
       )
       .get(seriesId);
     if (!r) return null;
     const ch = this.db.prepare<[number], ChapterRow>("SELECT * FROM chapters WHERE id = ?").get(r.chapter_id);
     if (!ch) return null;
-    return { chapterId: r.chapter_id, chapterNumber: ch.number, page: r.page };
+    return { chapterId: r.chapter_id, chapterNumber: ch.number, page: r.page, offset: r.page_offset };
   }
 
   private summary(row: SeriesRow, merged?: ChapterSummary[]): SeriesSummary {

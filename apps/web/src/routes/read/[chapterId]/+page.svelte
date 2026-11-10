@@ -28,6 +28,8 @@
   let current = $state(0);
   let uiVisible = $state(true);
   let completed = false;
+  /** Position inside the current page (0–1); only the strip reader reports it. */
+  let offset = $state(0);
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
   let view = $state<{ jumpTo: (i: number) => void } | null>(null);
   const ratios = new Map<number, number>();
@@ -49,6 +51,7 @@
       autoMode = seriesMode(d.seriesId) === null && readerSettings.defaultMode === "auto";
       mode = resolveMode(d.seriesId, d.genres);
       current = d.resumePage ?? 0;
+      offset = d.resumeOffset ?? 0;
       data = d;
       uiVisible = true;
     } catch (e) {
@@ -66,10 +69,21 @@
     if (next !== mode && current === 0) mode = next;
   }
 
-  function onPage(i: number) {
-    current = i;
+  function scheduleSave() {
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => saveProgress(false), 1200);
+  }
+
+  function onPage(i: number) {
+    current = i;
+    offset = 0;
+    scheduleSave();
+  }
+
+  function onOffset(o: number) {
+    if (Math.abs(o - offset) < 0.02) return;
+    offset = o;
+    scheduleSave();
   }
 
   function onEnd() {
@@ -81,7 +95,7 @@
 
   async function saveProgress(done: boolean) {
     if (!data) return;
-    await api.progress({ chapterId: data.chapterId, page: current, completed: done }).catch(() => null);
+    await api.progress({ chapterId: data.chapterId, page: current, offset, completed: done }).catch(() => null);
   }
 
   /** Last-chance save when iOS suspends the app. */
@@ -91,7 +105,7 @@
       method: "POST",
       keepalive: true,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chapterId: data.chapterId, page: current, completed }),
+      body: JSON.stringify({ chapterId: data.chapterId, page: current, offset, completed }),
     }).catch(() => null);
   }
 
@@ -212,7 +226,9 @@
           bind:this={view}
           pages={data.pages}
           initialPage={current}
+          initialOffset={offset}
           {onPage}
+          {onOffset}
           {onEnd}
           {onRatio}
           onTap={(z) => {
