@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { ChapterPages } from "@hanyo/types";
-  import { onMount } from "svelte";
+  import type { ChapterPages, ChapterSummary } from "@hanyo/types";
+  import { onMount, tick } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { api } from "$lib/api";
@@ -110,6 +110,22 @@
   }
 
   let settingsOpen = $state(false);
+
+  // Chapter list: jump to any chapter without leaving the reader (newest first, like the series page).
+  let listOpen = $state(false);
+  let chapterList = $state<ChapterSummary[] | null>(null);
+  async function openList() {
+    if (!data) return;
+    listOpen = true;
+    chapterList = null;
+    try {
+      chapterList = [...(await api.series(data.seriesId)).chapters].reverse();
+    } catch {
+      chapterList = [];
+    }
+    await tick();
+    document.querySelector('[data-current-chapter="true"]')?.scrollIntoView({ block: "center" });
+  }
 
   function setMode(next: ReadingMode) {
     if (!data || next === mode) return;
@@ -272,6 +288,9 @@
           {data.seriesTitle} <span class="font-normal text-muted">· {chapterLabel(data.chapterNumber, data.chapterTitle).replace("Capítulo", "Cap.")}</span>
         </p>
         <span class="shrink-0 rounded-xl bg-line px-2.5 py-1 text-xs font-semibold text-soft tabular-nums">{current + 1}/{data.pages.length}</span>
+        <button class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full" onclick={openList} aria-label="Capítulos">
+          <Icon name="list" size={20} stroke={2} />
+        </button>
         <button class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full" onclick={() => (settingsOpen = true)} aria-label="Ajustes de lectura">
           <Icon name="sliders" size={20} stroke={2} />
         </button>
@@ -303,6 +322,36 @@
     {#if readerSettings.showPageNumber && !uiVisible}
       <div class="pointer-events-none fixed right-3 z-20 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-semibold text-white/85 tabular-nums" style="bottom: calc(var(--safe-bottom) + 10px)">
         {current + 1}/{data.pages.length}
+      </div>
+    {/if}
+
+    <!-- Chapter list -->
+    {#if listOpen}
+      <button class="fixed inset-0 z-40 bg-black/50" onclick={() => (listOpen = false)} aria-label="Cerrar capítulos"></button>
+      <div class="pb-safe fixed inset-x-0 bottom-0 z-50 flex max-h-[75dvh] flex-col rounded-t-[28px] bg-raised" role="dialog" aria-label="Capítulos">
+        <p class="font-display px-5 pt-5 pb-2 text-lg font-semibold">Capítulos</p>
+        <ul class="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+          {#if chapterList === null}
+            <li class="flex justify-center py-8"><Spinner /></li>
+          {:else}
+            {#each chapterList as c (c.id)}
+              {@const here = c.number === data.chapterNumber}
+              <li>
+                <button
+                  data-current-chapter={here}
+                  class="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left {here ? 'bg-accent/15' : 'active:bg-fg/5'}"
+                  onclick={() => { listOpen = false; if (!here) void goChapter(c.id); }}
+                >
+                  <span class="min-w-0 flex-1 truncate text-[15px] {here ? 'font-semibold text-accent-soft' : c.read ? 'text-faint' : 'font-medium'}">{chapterLabel(c.number, c.title)}</span>
+                  {#if downloads.isDownloaded(c.id)}<Icon name="check" size={16} stroke={2.6} class="text-ok" />{/if}
+                  {#if here}<span class="text-xs text-muted">Leyendo</span>{/if}
+                </button>
+              </li>
+            {:else}
+              <li class="py-8 text-center text-sm text-muted">No se pudo cargar la lista.</li>
+            {/each}
+          {/if}
+        </ul>
       </div>
     {/if}
 

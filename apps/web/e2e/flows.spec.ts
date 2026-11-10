@@ -90,3 +90,16 @@ test("explore lists the source's series", async ({ page }) => {
   await page.waitForURL(/\/series\/\d+/);
   await expect(page.getByRole("button", { name: /Lista:/ })).toBeVisible();
 });
+
+test("jump to another chapter from the reader's chapter list", async ({ page }) => {
+  await login(page);
+  await page.goto("/");
+  await page.getByRole("link", { name: /Demo Strip/ }).first().click();
+  await page.waitForURL(/\/series\/\d+/);
+  const first = page.locator('section[aria-label="Todos los capítulos"] li', { hasText: "Capítulo 1" }).getByRole("link");
+  await first.click();
+  await page.waitForURL(/\/read\/\d+/);
+  await page.getByRole("button", { name: "Capítulos" }).click();
+  await page.getByRole("dialog", { name: "Capítulos" }).getByRole("button", { name: /Capítulo 3/ }).click();
+  await expect(page.getByText(/Cap\. 3/)).toBeVisible();
+});
