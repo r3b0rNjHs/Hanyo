@@ -41,6 +41,8 @@
   });
 
   async function load(id: number) {
+    // A save still pending belongs to the previous chapter.
+    if (saveTimer) clearTimeout(saveTimer);
     data = null;
     error = null;
     completed = false;
@@ -71,7 +73,9 @@
 
   function scheduleSave() {
     if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => saveProgress(false), 1200);
+    // Keep `completed` once the end was reached: a later scroll save must not move the resume
+    // point back from the next chapter to this one.
+    saveTimer = setTimeout(() => saveProgress(completed), 1200);
   }
 
   function onPage(i: number) {

@@ -7,6 +7,12 @@ async function login(page: Page) {
   await page.waitForURL("/");
 }
 
+/** Open a series from the library grid (the "Leyendo" carousel jumps straight into the reader). */
+async function openSeries(page: Page, title: string) {
+  await page.locator('a[href^="/series/"]:not([href*="resume"])', { hasText: title }).first().click();
+  await page.waitForURL(/\/series\/\d+$/);
+}
+
 test.describe.configure({ mode: "serial" });
 
 test("search, open and add a series to a reading list", async ({ page }) => {
@@ -33,18 +39,21 @@ test("search, open and add a series to a reading list", async ({ page }) => {
 test("read a chapter to the end and continue to the next one", async ({ page }) => {
   await login(page);
   await page.goto("/");
-  await page.getByRole("link", { name: /Demo Strip/ }).first().click();
+  await openSeries(page, "Demo Strip");
   await page.waitForURL(/\/series\/\d+/);
   await page.getByRole("link", { name: /Leer|Empezar|Seguir/ }).first().click();
   await page.waitForURL(/\/read\/\d+/);
   await expect(page.locator('img[alt="Página 1"]')).toBeVisible();
 
-  const next = page.getByRole("button", { name: /Seguir leyendo/ });
-  for (let i = 0; i < 20 && !(await next.isVisible()); i++) {
-    await page.mouse.wheel(0, 3000);
-    await page.waitForTimeout(250);
+  // Scroll to the end like a reader would; reaching it saves the chapter as read.
+  const saved = page.waitForRequest((r) => r.url().endsWith("/api/progress") && r.postDataJSON()?.completed === true);
+  for (let i = 0; i < 30; i++) {
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.waitForTimeout(150);
   }
-  await expect(next).toBeVisible();
+  await saved;
+  const next = page.getByRole("button", { name: /Seguir leyendo/ });
+  await expect(next).toBeInViewport();
   await expect(page.getByText("Capítulo 1 terminado")).toBeVisible();
   await next.click();
   await expect(page.getByText(/Cap\. 2/)).toBeVisible();
@@ -53,13 +62,13 @@ test("read a chapter to the end and continue to the next one", async ({ page }) 
 test("download a chapter and read it offline", async ({ page, context }) => {
   await login(page);
   await page.goto("/");
-  await page.getByRole("link", { name: /Demo Strip/ }).first().click();
+  await openSeries(page, "Demo Strip");
   await page.waitForURL(/\/series\/\d+/);
   // The service worker must control the page for offline reading.
   await page.reload();
   await page.waitForFunction(() => navigator.serviceWorker?.controller != null, null, { timeout: 20_000 });
 
-  await page.getByRole("button", { name: "Descargar Capítulo 3" }).click();
+  await page.locator('section[aria-label="Todos los capítulos"]').getByRole("button", { name: "Descargar Capítulo 3" }).click();
   await expect(page.getByRole("button", { name: "Gestionar descargas" })).toContainText("1 de 3 descargados", {
     timeout: 30_000,
   });
@@ -94,7 +103,7 @@ test("explore lists the source's series", async ({ page }) => {
 test("jump to another chapter from the reader's chapter list", async ({ page }) => {
   await login(page);
   await page.goto("/");
-  await page.getByRole("link", { name: /Demo Strip/ }).first().click();
+  await openSeries(page, "Demo Strip");
   await page.waitForURL(/\/series\/\d+/);
   const first = page.locator('section[aria-label="Todos los capítulos"] li', { hasText: "Capítulo 1" }).getByRole("link");
   await first.click();
@@ -102,4 +111,18 @@ test("jump to another chapter from the reader's chapter list", async ({ page }) 
   await page.getByRole("button", { name: "Capítulos" }).click();
   await page.getByRole("dialog", { name: "Capítulos" }).getByRole("button", { name: /Capítulo 3/ }).click();
   await expect(page.getByText(/Cap\. 3/)).toBeVisible();
+});
+
+test("free space by deleting downloaded chapters already read", async ({ page }) => {
+  await login(page);
+  await page.goto("/");
+  await openSeries(page, "Demo Strip");
+  await page.waitForURL(/\/series\/\d+/);
+  // Chapter 1 was read to the end in an earlier test.
+  await page.getByRole("button", { name: "Descargar Capítulo 1" }).click();
+  await expect(page.getByRole("button", { name: "Gestionar descargas" })).toContainText("descargados", { timeout: 30_000 });
+  await page.goto("/downloads");
+  await expect(page.getByText("1 capítulo ya leído")).toBeVisible();
+  await page.getByRole("button", { name: "Borrar" }).click();
+  await expect(page.getByText("1 capítulo ya leído")).toBeHidden();
 });
