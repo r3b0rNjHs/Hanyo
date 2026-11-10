@@ -12,4 +12,3 @@
 
 ## Tech
 - [ ] E2E Playwright suite in CI using a fake provider
-- [ ] Server image cache metrics endpoint

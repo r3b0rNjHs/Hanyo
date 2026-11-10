@@ -9,6 +9,7 @@ import type {
   SearchResponse,
   SeriesDetail,
   SeriesSummary,
+  ServerStats,
   Shelf,
   SourceInfo,
   UpdateCheckResult,
@@ -104,6 +105,7 @@ export const api = {
     }
   },
 
+  serverStats: () => request<ServerStats>("/server/stats"),
   checkUpdates: () => post<UpdateCheckResult>("/updates/check", {}),
   pushKey: () => request<{ enabled: boolean; publicKey: string | null }>("/push/key"),
   pushSubscribe: (sub: PushSubscriptionJSON) => post("/push/subscribe", sub),

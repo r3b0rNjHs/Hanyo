@@ -5,6 +5,8 @@
   import Icon from "$lib/components/Icon.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import { readerSettings } from "$lib/reader/settings.svelte";
+  import { formatBytes } from "$lib/format";
+  import type { ServerStats } from "@hanyo/types";
 
   let standalone = $state(false);
   let push = $state<"unsupported" | "disabled-server" | "off" | "on" | "denied">("off");
@@ -54,6 +56,17 @@
     const pad = "=".repeat((4 - (b64.length % 4)) % 4);
     const raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
     return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+  }
+
+  let stats = $state<ServerStats | null>(null);
+  $effect(() => {
+    api.serverStats().then((r) => (stats = r), () => (stats = null));
+  });
+
+  function uptime(sec: number): string {
+    const d = Math.floor(sec / 86400);
+    const h = Math.floor((sec % 86400) / 3600);
+    return d ? `${d} d ${h} h` : h ? `${h} h` : `${Math.max(1, Math.floor(sec / 60))} min`;
   }
 
   let relinkMsg = $state<string | null>(null);
@@ -151,6 +164,24 @@
       </p>
     </div>
   </section>
+
+  {#if stats}
+    <section>
+      <h2 class="mb-2 px-1 text-xs font-semibold tracking-[0.08em] text-muted uppercase">Servidor</h2>
+      <div class="divide-y divide-white/5 rounded-[var(--radius-card)] bg-surface text-sm">
+        <div class="px-4 py-3">
+          <div class="flex justify-between"><span>Caché de imágenes</span><span class="text-muted">{formatBytes(stats.cache.bytes)} de {formatBytes(stats.cache.maxBytes)}</span></div>
+          <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-line" role="progressbar" aria-label="Caché usada" aria-valuemin="0" aria-valuemax="100" aria-valuenow={stats.cache.maxBytes ? Math.round((stats.cache.bytes / stats.cache.maxBytes) * 100) : 0}>
+            <div class="h-full rounded-full bg-accent" style="width: {stats.cache.maxBytes ? Math.min(100, (stats.cache.bytes / stats.cache.maxBytes) * 100) : 0}%"></div>
+          </div>
+          <p class="mt-1.5 text-xs text-muted">Páginas y portadas ya descargadas por el servidor; lo más antiguo se borra solo.</p>
+        </div>
+        <div class="flex justify-between px-4 py-3"><span>Biblioteca</span><span class="text-muted">{stats.library.series} series · {stats.library.chapters} capítulos</span></div>
+        <div class="flex justify-between px-4 py-3"><span>Fuentes activas</span><span class="text-muted">{stats.sources}</span></div>
+        <div class="flex justify-between px-4 py-3"><span>Encendido desde hace</span><span class="text-muted">{uptime(stats.uptimeSec)}</span></div>
+      </div>
+    </section>
+  {/if}
 
   <button class="w-full rounded-[var(--radius-card)] bg-surface py-3 text-danger" onclick={logout}>Cerrar sesión</button>
   <p class="pb-4 text-center text-xs text-faint">Hanyo 0.1</p>
