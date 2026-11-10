@@ -4,6 +4,7 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { createApp, wrapImage } from "./app.js";
+import { AniListTitles } from "./services/anilist.js";
 import { config } from "./config.js";
 import { openDb } from "./db/index.js";
 import { Signer } from "./lib/signing.js";
@@ -37,6 +38,7 @@ const api = createApp({
   pages,
   updates,
   push,
+  titles: new AniListTitles(),
 });
 
 const root = new Hono();
