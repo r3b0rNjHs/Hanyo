@@ -6,7 +6,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import Spinner from "$lib/components/Spinner.svelte";
   import { downloads } from "$lib/offline/downloads.svelte";
-  import { chapterLabel, relativeDate, SHELVES, shelfLabel, statusLabel } from "$lib/format";
+  import { chapterLabel, formatBytes, relativeDate, SHELVES, shelfLabel, statusLabel } from "$lib/format";
   import type { Shelf } from "@hanyo/types";
 
   const id = $derived(Number(page.params.id));
@@ -176,6 +176,35 @@
     menuFor = null;
   }
 
+  /** This series' downloads: what's stored and what's still in the queue. */
+  const dl = $derived.by(() => {
+    if (!s) return { done: 0, bytes: 0, pending: 0, ids: [] as number[] };
+    const ids = s.chapters.map((c) => c.id).filter((id) => downloads.records.has(id));
+    const bytes = ids.reduce((n, id) => n + (downloads.records.get(id)?.bytes ?? 0), 0);
+    const mine = new Set(s.chapters.map((c) => c.id));
+    const pending = downloads.queue.filter((j) => mine.has(j.chapterId)).length + (downloads.active && mine.has(downloads.active.chapterId) ? 1 : 0);
+    return { done: ids.length, bytes, pending, ids };
+  });
+
+  function cancelPending() {
+    if (!s) return;
+    for (const c of s.chapters) downloads.cancel(c.id);
+    downloadMenu = false;
+  }
+
+  async function removeDownloads() {
+    downloadMenu = false;
+    await downloads.remove(dl.ids);
+  }
+
+  /** Row button: download a chapter in one tap; once stored, the same button offers to delete it. */
+  function rowDownload(c: ChapterSummary) {
+    const st = downloads.status(c.id);
+    if (st === "none") download([c]);
+    else if (st === "queued") downloads.cancel(c.id);
+    else if (st === "downloaded") menuFor = c;
+  }
+
   function download(list: ChapterSummary[]) {
     if (s) downloads.enqueue(s, list);
     downloadMenu = false;
@@ -268,6 +297,33 @@
       </button>
     </div>
 
+    {#if dl.done > 0 || dl.pending > 0}
+      <button
+        onclick={() => (downloadMenu = true)}
+        class="mt-3 flex w-full items-center gap-3 rounded-[18px] bg-surface px-4 py-3 text-left"
+        aria-label="Gestionar descargas"
+      >
+        {#if dl.pending > 0}<Spinner size={18} />{:else}<Icon name="check" size={18} stroke={2.6} class="text-ok" />{/if}
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-semibold">
+            {#if dl.pending > 0}
+              Descargando · faltan {dl.pending}
+            {:else}
+              {dl.done === s.chapters.length ? "Serie descargada" : `${dl.done} de ${s.chapters.length} descargados`}
+            {/if}
+          </span>
+          <span class="block text-xs text-muted">
+            {#if downloads.active && dl.pending > 0 && s.chapters.some((c) => c.id === downloads.active?.chapterId)}
+              {chapterLabel(downloads.active.chapter.number)} · pág. {downloads.active.done}/{downloads.active.total || "…"}
+            {:else}
+              {formatBytes(dl.bytes)} · disponible sin conexión
+            {/if}
+          </span>
+        </span>
+        <Icon name="chevronRight" size={18} class="text-muted" />
+      </button>
+    {/if}
+
     {#if s.description}
       <button class="mt-4 block w-full text-left" onclick={() => (expanded = !expanded)} aria-expanded={expanded}>
         <p class="text-sm leading-relaxed break-words whitespace-pre-line text-soft {expanded ? '' : 'line-clamp-3'}">{s.description}</p>
@@ -321,11 +377,16 @@
                 {#if current && s.resume}Leyendo · pág. {s.resume.page + 1}{:else}{relativeDate(c.publishedAt)}{c.publishedAt ? " · " : ""}{c.sourceName}{c.scanlator ? ` · ${c.scanlator}` : ""}{/if}
               </p>
             </a>
-            <span class="flex w-7 justify-center">
-              {#if st === "downloaded"}<Icon name="check" size={16} stroke={2.6} class="text-ok" />
-              {:else if st === "active"}<Spinner size={16} />
-              {:else if st === "queued"}<span class="h-1.5 w-1.5 rounded-full bg-muted"></span>{/if}
-            </span>
+            <button
+              class="flex h-12 w-10 items-center justify-center {st === 'downloaded' ? 'text-ok' : 'text-muted'}"
+              onclick={() => rowDownload(c)}
+              aria-label={st === "none" ? `Descargar ${chapterLabel(c.number)}` : st === "queued" ? "Cancelar descarga" : st === "active" ? "Descargando" : "Descargado"}
+            >
+              {#if st === "downloaded"}<Icon name="check" size={17} stroke={2.6} />
+              {:else if st === "active"}<Spinner size={17} />
+              {:else if st === "queued"}<span class="h-2 w-2 rounded-full bg-muted"></span>
+              {:else}<Icon name="download" size={18} stroke={2} />{/if}
+            </button>
             <button class="flex h-12 w-11 items-center justify-center text-muted" onclick={() => (menuFor = c)} aria-label="Opciones de {chapterLabel(c.number, c.title)}">
               <Icon name="more" size={20} stroke={3} />
             </button>
@@ -383,7 +444,9 @@
     <p class="px-3 pb-3 text-sm text-muted">Para leer sin conexión</p>
     {#if next5.length}<button class="sheet-btn" onclick={() => download(next5)}>Los próximos {next5.length}</button>{/if}
     <button class="sheet-btn" disabled={!unread.length} onclick={() => download(unread)}>Todos los no leídos ({unread.length})</button>
-    <button class="sheet-btn" onclick={() => download(s!.chapters)}>Todos ({s.chapters.length})</button>
+    <button class="sheet-btn" disabled={dl.done === s.chapters.length} onclick={() => download(s!.chapters)}>Toda la serie ({s.chapters.length})</button>
+    {#if dl.pending > 0}<button class="sheet-btn" onclick={cancelPending}>Cancelar pendientes ({dl.pending})</button>{/if}
+    {#if dl.done > 0}<button class="sheet-btn text-danger" onclick={removeDownloads}>Eliminar descargas · {formatBytes(dl.bytes)}</button>{/if}
     <button class="sheet-btn mt-1 text-muted" onclick={() => (downloadMenu = false)}>Cancelar</button>
   </div>
 {/if}
