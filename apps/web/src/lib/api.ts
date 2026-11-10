@@ -2,6 +2,7 @@ import type {
   ChapterPages,
   ExploreKind,
   FeedItem,
+  HistoryItem,
   ExploreResponse,
   TrendingOrigin,
   TrendingResponse,
@@ -96,6 +97,8 @@ export const api = {
 
   library: () => request<SeriesSummary[]>("/library"),
   feed: () => request<FeedItem[]>("/feed"),
+  history: () => request<HistoryItem[]>("/history"),
+  forgetHistory: (seriesId: number) => request<{ ok: true }>(`/history/${seriesId}`, { method: "DELETE" }),
   libraryLinks: () => request<{ sourceKey: string; externalId: string; seriesId: number }[]>("/library/links"),
   relinkLibrary: () => post<{ started: boolean; series: number }>("/library/relink", {}),
   chapterPages: (chapterId: number) => request<ChapterPages>(`/chapters/${chapterId}/pages`),

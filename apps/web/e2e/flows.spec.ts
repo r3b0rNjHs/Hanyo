@@ -184,3 +184,15 @@ test("chapter row actions: mark a chapter read without opening it", async ({ pag
   await expect(row.getByText("No leído")).toBeAttached();
   await expect(row.locator("p").first()).toHaveClass(/text-faint/);
 });
+
+test("history shows where you left each series and can forget one", async ({ page }) => {
+  await login(page);
+  await page.goto("/updates");
+  await page.getByRole("tab", { name: "Historial" }).click();
+  await page.waitForURL(/view=history/);
+  const row = page.locator("li", { hasText: "Demo Strip" });
+  await expect(row.getByRole("link", { name: "Seguir leyendo Demo Strip" })).toBeVisible();
+  await row.getByRole("link", { name: /^Demo Strip/ }).click({ button: "right" });
+  await row.getByText("Quitar").click();
+  await expect(page.locator("li", { hasText: "Demo Strip" })).toHaveCount(0);
+});

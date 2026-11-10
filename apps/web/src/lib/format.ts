@@ -40,3 +40,13 @@ export const SHELVES = [
 export function shelfLabel(shelf: string): string {
   return SHELVES.find(([k]) => k === shelf)?.[1] ?? shelf;
 }
+
+/** "hace 5 min", "hace 3 h", "ayer", then the date. */
+export function timeAgo(ms: number): string {
+  const diff = Date.now() - ms;
+  const min = 60_000;
+  if (diff < min) return "ahora";
+  if (diff < 60 * min) return `hace ${Math.floor(diff / min)} min`;
+  if (diff < 24 * 60 * min) return `hace ${Math.floor(diff / (60 * min))} h`;
+  return relativeDate(ms);
+}
