@@ -510,6 +510,6 @@
     <button class="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-accent font-bold text-on-accent disabled:opacity-50" disabled={sourcesBusy !== null || offline} onclick={findMoreSources}>
       {#if sourcesBusy === "find"}<Spinner size={18} /> Buscando…{:else}<Icon name="search" size={18} stroke={2.4} /> Buscar en otras fuentes{/if}
     </button>
-    <button class="mt-1 h-12 w-full rounded-full font-semibold text-muted active:bg-white/5" onclick={() => (sourcesOpen = false)}>Cerrar</button>
+    <button class="mt-1 h-12 w-full rounded-full font-semibold text-muted active:bg-fg/5" onclick={() => (sourcesOpen = false)}>Cerrar</button>
   </div>
 {/if}

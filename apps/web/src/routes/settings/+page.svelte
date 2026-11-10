@@ -6,6 +6,7 @@
   import PageHeader from "$lib/components/PageHeader.svelte";
   import { readerSettings } from "$lib/reader/settings.svelte";
   import { formatBytes } from "$lib/format";
+  import { currentTheme, setTheme, type Theme } from "$lib/theme";
   import type { ServerStats } from "@hanyo/types";
 
   let standalone = $state(false);
@@ -58,6 +59,9 @@
     return Uint8Array.from(raw, (c) => c.charCodeAt(0));
   }
 
+  let theme = $state<Theme>(currentTheme());
+  $effect(() => setTheme(theme));
+
   let stats = $state<ServerStats | null>(null);
   $effect(() => {
     api.serverStats().then((r) => (stats = r), () => (stats = null));
@@ -100,8 +104,22 @@
   {/if}
 
   <section>
+    <h2 class="mb-2 px-1 text-xs font-semibold tracking-[0.08em] text-muted uppercase">Apariencia</h2>
+    <div class="grid grid-cols-3 gap-1 rounded-full bg-surface p-1" role="radiogroup" aria-label="Tema">
+      {#each [["dark", "Oscuro"], ["light", "Claro"], ["system", "Sistema"]] as const as [t, label] (t)}
+        <button
+          role="radio"
+          aria-checked={theme === t}
+          onclick={() => (theme = t)}
+          class="h-9 rounded-full text-[13px] font-semibold {theme === t ? 'bg-accent text-on-accent' : 'text-soft'}"
+        >{label}</button>
+      {/each}
+    </div>
+  </section>
+
+  <section>
     <h2 class="mb-2 px-1 text-xs font-semibold tracking-[0.08em] text-muted uppercase">Lector</h2>
-    <div class="divide-y divide-white/5 rounded-[var(--radius-card)] bg-surface">
+    <div class="divide-y divide-fg/5 rounded-[var(--radius-card)] bg-surface">
       <label class="flex items-center justify-between px-4 py-3">
         <span>Modo por defecto</span>
         <select bind:value={readerSettings.defaultMode} class="rounded-full bg-raised px-3 py-1.5 text-sm text-soft">
@@ -168,7 +186,7 @@
   {#if stats}
     <section>
       <h2 class="mb-2 px-1 text-xs font-semibold tracking-[0.08em] text-muted uppercase">Servidor</h2>
-      <div class="divide-y divide-white/5 rounded-[var(--radius-card)] bg-surface text-sm">
+      <div class="divide-y divide-fg/5 rounded-[var(--radius-card)] bg-surface text-sm">
         <div class="px-4 py-3">
           <div class="flex justify-between"><span>Caché de imágenes</span><span class="text-muted">{formatBytes(stats.cache.bytes)} de {formatBytes(stats.cache.maxBytes)}</span></div>
           <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-line" role="progressbar" aria-label="Caché usada" aria-valuemin="0" aria-valuemax="100" aria-valuenow={stats.cache.maxBytes ? Math.round((stats.cache.bytes / stats.cache.maxBytes) * 100) : 0}>

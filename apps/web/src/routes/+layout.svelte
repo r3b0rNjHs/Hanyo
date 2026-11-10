@@ -93,7 +93,7 @@
             aria-current={active ? "page" : undefined}
             class="relative flex h-full items-center justify-center gap-1.5 rounded-full text-[13px] font-semibold transition-colors {active
               ? 'bg-accent text-on-accent'
-              : 'text-muted active:bg-white/5'}"
+              : 'text-muted active:bg-fg/5'}"
           >
             <Icon name={tab.icon} size={active ? 20 : 22} stroke={active ? 2.1 : 1.9} />
             {#if active}<span class="truncate">{tab.label}</span>{/if}
