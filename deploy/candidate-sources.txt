@@ -1,0 +1,65 @@
+# Sources to test from the VPS with: python3 deploy/test-sources.py
+# Broad aggregators first (large catalogues), per language. Weeb Central is excluded:
+# it blocks datacenter IPs, including this server. Sources dedicated to "loli" content are
+# never included.
+
+# ── English: aggregators ─────────────────────────────────────────────
+eu.kanade.tachiyomi.extension.en.mangapill
+eu.kanade.tachiyomi.extension.en.manganelo
+eu.kanade.tachiyomi.extension.en.mangakakalot
+eu.kanade.tachiyomi.extension.en.manganel
+eu.kanade.tachiyomi.extension.en.mangarawclub
+eu.kanade.tachiyomi.extension.en.mangago
+eu.kanade.tachiyomi.extension.en.mangahubio
+eu.kanade.tachiyomi.extension.en.mangakatana
+eu.kanade.tachiyomi.extension.en.mangatown
+eu.kanade.tachiyomi.extension.en.mangahere
+eu.kanade.tachiyomi.extension.en.mangareadorg
+eu.kanade.tachiyomi.extension.en.zinmanga
+eu.kanade.tachiyomi.extension.en.kunmangaonline
+eu.kanade.tachiyomi.extension.all.kagane
+eu.kanade.tachiyomi.extension.all.comicklive
+# ── English: manhwa / webtoon focused ────────────────────────────────
+eu.kanade.tachiyomi.extension.en.manhwabuddy
+eu.kanade.tachiyomi.extension.en.manhwatop
+eu.kanade.tachiyomi.extension.en.manhwaz
+eu.kanade.tachiyomi.extension.en.manhuaplus
+eu.kanade.tachiyomi.extension.en.webtoonxyz
+eu.kanade.tachiyomi.extension.en.drakescans
+eu.kanade.tachiyomi.extension.en.thunderscans
+eu.kanade.tachiyomi.extension.en.arvenscans
+eu.kanade.tachiyomi.extension.en.infernalvoidscans
+# ── English: adult manhwa ────────────────────────────────────────────
+eu.kanade.tachiyomi.extension.en.toonily
+eu.kanade.tachiyomi.extension.all.manhwa18cc
+eu.kanade.tachiyomi.extension.all.manhwa18net
+eu.kanade.tachiyomi.extension.en.manhwa18
+eu.kanade.tachiyomi.extension.en.manhwa18tx
+# ── Spanish: aggregators ─────────────────────────────────────────────
+eu.kanade.tachiyomi.extension.es.lectortmounoriginal
+eu.kanade.tachiyomi.extension.es.zonatmoto
+eu.kanade.tachiyomi.extension.es.tmomanhwa
+eu.kanade.tachiyomi.extension.es.mangatv
+eu.kanade.tachiyomi.extension.es.inmanga
+eu.kanade.tachiyomi.extension.es.leercapitulo
+eu.kanade.tachiyomi.extension.es.lmtoonline
+eu.kanade.tachiyomi.extension.es.mangasin
+eu.kanade.tachiyomi.extension.es.mangamx
+eu.kanade.tachiyomi.extension.es.lectormangalat
+eu.kanade.tachiyomi.extension.es.visormangaunoriginal
+eu.kanade.tachiyomi.extension.es.kumanga
+# ── Spanish: manhwa focused ──────────────────────────────────────────
+eu.kanade.tachiyomi.extension.es.olympusscanlation
+eu.kanade.tachiyomi.extension.es.ikigaimangas
+eu.kanade.tachiyomi.extension.es.manhwaweb
+eu.kanade.tachiyomi.extension.es.manhwalatino
+eu.kanade.tachiyomi.extension.es.manhwaonline
+eu.kanade.tachiyomi.extension.es.mundomanhwa
+eu.kanade.tachiyomi.extension.es.leermanhwas
+eu.kanade.tachiyomi.extension.es.vermanhwas
+eu.kanade.tachiyomi.extension.es.toones
+eu.kanade.tachiyomi.extension.es.submanhwa
+# ── Already in use, re-checked for comparison ────────────────────────
+eu.kanade.tachiyomi.extension.en.asurascans
+eu.kanade.tachiyomi.extension.en.flamecomics
+eu.kanade.tachiyomi.extension.en.comix
