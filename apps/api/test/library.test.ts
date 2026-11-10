@@ -173,6 +173,17 @@ describe("LibraryService", () => {
     expect(feed[0]!.seriesTitle).toBe("Eleceed");
   });
 
+  it("keeps a reading history from resume points, newest first", async () => {
+    const { library } = setup();
+    const id = await library.open("mangadex", "md-1");
+    const ch = library.mergedChapters(id)[1]!;
+    library.saveProgress(ch.id, 4, false);
+    expect(library.history()).toMatchObject([{ seriesId: id, chapterId: ch.id, chapterNumber: 2, page: 4 }]);
+    library.forgetResume(id);
+    expect(library.history()).toEqual([]);
+    expect(library.detailFromDb(id)!.resume).toBeNull();
+  });
+
   it("lists the source entries of library series", async () => {
     const { library } = setup();
     const id = await library.open("mangadex", "md-1");

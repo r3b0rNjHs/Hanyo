@@ -1,14 +1,28 @@
 <script lang="ts">
-  import type { FeedItem } from "@hanyo/types";
+  import type { FeedItem, HistoryItem } from "@hanyo/types";
+  import { page } from "$app/state";
+  import { goto } from "$app/navigation";
+  import SwipeRow from "$lib/components/SwipeRow.svelte";
   import { onMount } from "svelte";
   import { api } from "$lib/api";
   import Cover from "$lib/components/Cover.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import Spinner from "$lib/components/Spinner.svelte";
-  import { chapterLabel } from "$lib/format";
+  import { chapterLabel, timeAgo } from "$lib/format";
   import { downloads } from "$lib/offline/downloads.svelte";
   import { markFeedSeen } from "$lib/feed-badge.svelte";
+
+  /** Two views of "what's going on": new chapters, and where you left each series. */
+  const view = $derived(page.url.searchParams.get("view") === "history" ? "history" : "new");
+  let history = $state<HistoryItem[] | null>(null);
+  $effect(() => {
+    if (view === "history") api.history().then((h) => (history = h), () => (history = history ?? []));
+  });
+  async function forget(it: HistoryItem) {
+    history = (history ?? []).filter((h) => h.seriesId !== it.seriesId);
+    await api.forgetHistory(it.seriesId).catch(() => undefined);
+  }
 
   let items = $state<FeedItem[] | null>(null);
   let error = $state<string | null>(null);
@@ -114,6 +128,7 @@
 
 <PageHeader title="Novedades">
   {#snippet actions()}
+    {#if view === "new"}
     <button
       class="flex h-11 w-11 items-center justify-center rounded-full bg-raised text-fg active:bg-line"
       onclick={checkUpdates}
@@ -121,8 +136,53 @@
     >
       {#if checking}<Spinner size={18} />{:else}<Icon name="refresh" size={20} stroke={2} />{/if}
     </button>
+    {/if}
   {/snippet}
 </PageHeader>
+
+<div class="mx-5 mb-2 grid grid-cols-2 gap-1 rounded-full bg-surface p-1" role="tablist" aria-label="Vista">
+  {#each [["new", "Capítulos nuevos", "/updates"], ["history", "Historial", "/updates?view=history"]] as const as [k, label, href] (k)}
+    <button
+      role="tab"
+      aria-selected={view === k}
+      onclick={() => goto(href, { replaceState: true, noScroll: true })}
+      class="h-9 rounded-full text-[13px] font-semibold {view === k ? 'bg-accent text-on-accent' : 'text-soft'}"
+    >{label}</button>
+  {/each}
+</div>
+
+{#if view === "history"}
+  {#if history === null}
+    <div class="flex justify-center py-24"><Spinner /></div>
+  {:else if history.length === 0}
+    <p class="px-8 py-20 text-center text-sm text-muted">Aquí verás lo último que has leído, para seguir donde lo dejaste.</p>
+  {:else}
+    <ul class="px-5 pt-1">
+      {#each history as it (it.seriesId)}
+        <li>
+          <SwipeRow width={96}>
+            {#snippet actions(close)}
+              <button class="flex-1 bg-danger text-xs font-semibold text-white" onclick={() => { close(); void forget(it); }}>Quitar</button>
+            {/snippet}
+            <div class="flex items-center gap-3 py-1.5">
+              <a href="/series/{it.seriesId}" class="w-11 shrink-0" aria-label="Ficha de {it.seriesTitle}">
+                <Cover src={it.coverUrl} alt={it.seriesTitle} rounded="rounded-[10px]" />
+              </a>
+              <a href="/read/{it.chapterId}" class="min-w-0 flex-1">
+                <span class="block truncate text-[15px] font-semibold">{it.seriesTitle}</span>
+                <span class="block truncate text-xs text-muted">{chapterLabel(it.chapterNumber)}{it.page > 0 ? ` · pág. ${it.page + 1}` : ""} · {timeAgo(it.readAt)}</span>
+              </a>
+              <a href="/read/{it.chapterId}" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent" aria-label="Seguir leyendo {it.seriesTitle}">
+                <Icon name="play" size={14} filled />
+              </a>
+            </div>
+          </SwipeRow>
+        </li>
+      {/each}
+    </ul>
+    <p class="px-8 pt-3 pb-6 text-center text-xs text-faint">Desliza una serie a la izquierda para quitarla del historial.</p>
+  {/if}
+{:else}
 
 {#if toast}
   <div class="fixed inset-x-0 top-[calc(var(--safe-top)+76px)] z-30 flex justify-center px-4" role="status">
@@ -208,4 +268,5 @@
       </ul>
     </section>
   {/each}
+{/if}
 {/if}

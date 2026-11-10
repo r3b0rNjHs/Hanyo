@@ -193,6 +193,17 @@ export interface FeedItem {
   chapter: ChapterSummary;
 }
 
+/** Where you left each series, most recent first (the Historial view). */
+export interface HistoryItem {
+  seriesId: number;
+  seriesTitle: string;
+  coverUrl: string | null;
+  chapterId: number;
+  chapterNumber: number | null;
+  page: number;
+  readAt: number;
+}
+
 export interface ProgressUpdate {
   chapterId: number;
   page: number;
