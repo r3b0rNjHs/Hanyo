@@ -29,8 +29,10 @@ export class SuwayomiProvider implements Provider {
   async listSources(): Promise<SourceInfo[]> {
     if (this.sourcesCache && Date.now() - this.sourcesCache.at < 5 * 60_000) return this.sourcesCache.value;
     const data = await this.gql<{
-      sources: { nodes: Array<{ id: string; displayName: string; name: string; lang: string; iconUrl: string }> };
-    }>(`query { sources { nodes { id name displayName lang iconUrl } } }`);
+      sources: {
+        nodes: Array<{ id: string; displayName: string; name: string; lang: string; iconUrl: string; supportsLatest: boolean }>;
+      };
+    }>(`query { sources { nodes { id name displayName lang iconUrl supportsLatest } } }`);
     const value = data.sources.nodes
       // "0" is Suwayomi's Local source; MangaDex is handled natively by hanyo-api.
       .filter((s) => s.id !== "0" && s.name.toLowerCase() !== "mangadex")
@@ -46,6 +48,7 @@ export class SuwayomiProvider implements Provider {
         name: s.name,
         lang: s.lang,
         iconUrl: s.iconUrl ? this.abs(s.iconUrl) : null,
+        supportsLatest: s.supportsLatest,
       }));
     this.sourcesCache = { at: Date.now(), value };
     return value;

@@ -61,6 +61,8 @@
   let generation = 0;
 
   const langSources = $derived(sources.filter((s) => langOf(s) === lang));
+  /** Some sources have no "latest" listing: Novedades is disabled there and Populares used. */
+  const noLatest = $derived(sources.find((s) => s.key === sourceKey)?.supportsLatest === false);
   const langs = $derived([...new Set(sources.map(langOf))].sort());
   const langNames: Record<string, string> = { en: "Inglés", es: "Español" };
 
@@ -93,7 +95,7 @@
         items = r.items.map((i) => ({ id: `al${i.cluster.id}`, title: i.cluster.title, coverUrl: i.coverUrl }));
         next = r.hasNextPage;
       } else {
-        const r = await api.explore(sourceKey, kind, page + 1);
+        const r = await api.explore(sourceKey, noLatest ? "popular" : kind, page + 1);
         items = r.hits.map((h) => ({ id: h.externalId, title: h.title, coverUrl: h.coverUrl, hit: h }));
         next = r.hasNextPage;
       }
@@ -219,9 +221,10 @@
     {#each [["popular", "Populares"], ["latest", "Novedades"]] as const as [k, label] (k)}
       <button
         role="radio"
-        aria-checked={kind === k}
+        aria-checked={(noLatest ? "popular" : kind) === k}
+        disabled={k === "latest" && noLatest}
         onclick={() => { kind = k; reset(); }}
-        class="h-9 rounded-full text-[13px] font-semibold {kind === k ? 'bg-accent text-on-accent' : 'text-soft'}"
+        class="h-9 rounded-full text-[13px] font-semibold disabled:opacity-40 {(noLatest ? 'popular' : kind) === k ? 'bg-accent text-on-accent' : 'text-soft'}"
       >{label}</button>
     {/each}
   </div>
