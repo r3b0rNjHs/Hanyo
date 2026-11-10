@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type { ChapterPages } from "@hanyo/types";
 import type { ProviderRegistry } from "../providers/registry.js";
+import { compressPage, JobQueue } from "./compress.js";
 import type { ImageCache } from "./image-cache.js";
 import type { LibraryService } from "./library.js";
 
@@ -10,11 +11,15 @@ const PAGE_LIST_TTL_MS = 10 * 60_000;
 export class PageService {
   private readonly lists = new Map<number, { at: number; urls: string[] }>();
   private readonly inflight = new Map<string, Promise<{ bytes: Buffer; contentType: string }>>();
+  /** Re-encoding is CPU-heavy (~1.5 s for a long strip): keep it off the request path when possible. */
+  private readonly compressQueue = new JobQueue(2);
 
   constructor(
     private readonly library: LibraryService,
     private readonly registry: ProviderRegistry,
     private readonly cache: ImageCache,
+    /** WebP/mozjpeg quality for re-encoded pages; 0 disables re-encoding. */
+    private readonly quality = 90,
   ) {}
 
   async chapterPages(chapterId: number): Promise<ChapterPages | null> {
@@ -37,8 +42,52 @@ export class PageService {
     };
   }
 
-  /** Serve one page: disk cache first, then upstream (de-duplicating concurrent requests). */
-  async page(chapterId: number, index: number): Promise<{ bytes: Buffer; contentType: string } | null> {
+  /**
+   * Serve one page. Pages are stored twice at most: the upstream original (`pages/…`) until it has been
+   * re-encoded into a compact version (`compact/…`, ~80% smaller), which then replaces it.
+   * - Reading online (`compact: false`): never waits for re-encoding; returns whatever is ready.
+   * - Downloads and prefetch (`compact: true`): wait for the compact version, since it is what the
+   *   phone stores.
+   */
+  async page(
+    chapterId: number,
+    index: number,
+    opts: { compact?: boolean } = {},
+  ): Promise<{ bytes: Buffer; contentType: string } | null> {
+    const compactKey = `compact/${chapterId}/${index}`;
+    const done = this.cache.read(compactKey);
+    if (done) return done;
+
+    let original: { bytes: Buffer; contentType: string };
+    try {
+      original = await this.original(chapterId, index);
+    } catch (e) {
+      if (e instanceof PageNotFound) return null;
+      throw e;
+    }
+    if (this.quality <= 0) return original;
+
+    const job = this.compact(chapterId, index, original.bytes);
+    if (!opts.compact) {
+      void job.catch(() => undefined);
+      return original;
+    }
+    await job;
+    return this.cache.read(compactKey) ?? original;
+  }
+
+  private compact(chapterId: number, index: number, bytes: Buffer): Promise<void> {
+    const compactKey = `compact/${chapterId}/${index}`;
+    return this.compressQueue.run(compactKey, async () => {
+      if (this.cache.has(compactKey)) return;
+      const result = await compressPage(bytes, this.quality);
+      this.cache.write(compactKey, result.bytes);
+      this.cache.remove(`pages/${chapterId}/${index}`);
+    });
+  }
+
+  /** Upstream original: disk cache first, then the source (de-duplicating concurrent requests). */
+  private async original(chapterId: number, index: number): Promise<{ bytes: Buffer; contentType: string }> {
     const key = `pages/${chapterId}/${index}`;
     const hit = this.cache.read(key);
     if (hit) return hit;
@@ -65,19 +114,14 @@ export class PageService {
       })().finally(() => this.inflight.delete(key));
       this.inflight.set(key, p);
     }
-    try {
-      return await p;
-    } catch (e) {
-      if (e instanceof PageNotFound) return null;
-      throw e;
-    }
+    return p;
   }
 
   /** Download every page of a chapter into the server cache (used for new-chapter prefetch). */
   async prefetch(chapterId: number): Promise<void> {
     const list = await this.chapterPages(chapterId);
     if (!list) return;
-    for (let i = 0; i < list.pages.length; i++) await this.page(chapterId, i);
+    for (let i = 0; i < list.pages.length; i++) await this.page(chapterId, i, { compact: true });
   }
 
   /** Cover/thumbnail proxy with caching. `sourceKey` decides which provider may fetch the URL. */

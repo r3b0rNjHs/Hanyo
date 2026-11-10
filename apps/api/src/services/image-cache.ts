@@ -47,6 +47,17 @@ export class ImageCache {
     if (this.totalBytes > this.maxBytes) this.evict();
   }
 
+  remove(key: string): void {
+    const file = this.file(key);
+    try {
+      const { size } = fs.statSync(file);
+      fs.rmSync(file);
+      this.totalBytes -= size;
+    } catch {
+      // Already gone.
+    }
+  }
+
   private evict(): void {
     if (this.evicting) return;
     this.evicting = true;

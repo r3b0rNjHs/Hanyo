@@ -33,3 +33,11 @@ One password (`HANYO_PASSWORD`) → HMAC-signed, HttpOnly, Secure cookie valid 1
 WebKit kills tabs that hold too many decoded images (a 800×10000 strip ≈ 32 MB decoded). The strip reader
 mounts only pages [current−3, current+6], keeps sized placeholders elsewhere and compensates scroll position
 when a page above the viewport learns its real height (Safari has no `overflow-anchor`).
+
+## ADR-008: Re-encode pages for downloads (WebP / mozjpeg, quality 90)
+MangaDex originals are ~35–40 MB per chapter. Pages are re-encoded with sharp to WebP q90, or mozjpeg q90
+for strips taller than WebP's 16383 px limit (common in webtoons: 18 of 29 sampled pages). Measured on real
+chapters: ~80% smaller (Eleceed ch. 94: 7.3 MB vs ~38 MB) with no visible difference at 1:1
+(`docs/screenshots/11-calidad-webp.png`). Re-encoding costs ~1.5 s per long strip, so online reading never
+waits for it (original served, compact version built in the background); downloads (`?compact=1`) and
+server prefetch wait for it. The original is kept if re-encoding doesn't make it smaller.

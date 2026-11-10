@@ -6,8 +6,6 @@
 - [ ] Verify on iPhone: install, offline reading, push notifications, long-strip memory
 
 ## Product
-- [ ] Download quality option: MangaDex originals are ~35–40 MB/chapter. Options: MangaDex `data-saver`
-      URLs, or server-side re-encode to WebP (sharp) for downloads
 - [ ] "Download new chapters automatically" per series (on app open, since iOS has no background fetch)
 - [ ] Source management UI on the series page: reorder priority, unlink, "find on other sources"
 - [ ] Browse tab: popular / latest per source (Suwayomi `POPULAR` / `LATEST`)

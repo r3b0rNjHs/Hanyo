@@ -171,7 +171,9 @@ class DownloadManager {
         const url = list.pages[next++]!;
         let res = await cache.match(url);
         if (!res) {
-          res = await fetchWithRetry(url);
+          // Ask for the re-encoded (~80% smaller) version but store it under the plain URL,
+          // which is what the reader and the service worker look up.
+          res = await fetchWithRetry(`${url}?compact=1`);
           const blob = await res.clone().blob();
           bytes += blob.size;
           await cache.put(url, res);
