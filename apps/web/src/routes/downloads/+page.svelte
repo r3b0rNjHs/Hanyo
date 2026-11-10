@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { api } from "$lib/api";
+  import { connection } from "$lib/connection.svelte";
   import Cover from "$lib/components/Cover.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
@@ -10,7 +12,35 @@
   let open = $state<number | null>(null);
   const groups = $derived(downloads.bySeries());
 
+  /** Downloaded chapters you've already read (needs the server to know read state). */
+  let readIds = $state<number[]>([]);
+  const readBytes = $derived(readIds.reduce((n, id) => n + (downloads.records.get(id)?.bytes ?? 0), 0));
+  let clearing = $state(false);
+
+  async function findRead() {
+    if (!connection.online) return;
+    const ids: number[] = [];
+    for (const g of downloads.bySeries()) {
+      try {
+        const s = await api.series(g.seriesId);
+        for (const c of s.chapters) if (c.read && downloads.records.has(c.id)) ids.push(c.id);
+      } catch {
+        // Series gone or offline: keep its downloads.
+      }
+    }
+    readIds = ids;
+  }
+
+  async function clearRead() {
+    clearing = true;
+    await downloads.remove(readIds);
+    readIds = [];
+    clearing = false;
+  }
+
   onMount(async () => {
+    await downloads.init();
+    void findRead();
     try {
       const est = await navigator.storage?.estimate?.();
       if (est?.quota) quota = { usage: est.usage ?? 0, quota: est.quota };
@@ -28,6 +58,16 @@
       <div class="h-full rounded-full bg-accent" style="width: {Math.min(100, (quota.usage / quota.quota) * 100).toFixed(1)}%"></div>
     </div>
     <p class="mt-1.5 text-xs text-faint">{formatBytes(quota.usage)} usados de {formatBytes(quota.quota)} disponibles para Hanyo</p>
+  </div>
+{/if}
+
+{#if readIds.length > 0}
+  <div class="mx-4 mb-4 flex items-center justify-between gap-3 rounded-[var(--radius-card)] bg-surface px-4 py-3">
+    <span class="min-w-0 text-sm">
+      <span class="block font-semibold">{readIds.length} {readIds.length === 1 ? "capítulo ya leído" : "capítulos ya leídos"}</span>
+      <span class="block text-xs text-muted">Libera {formatBytes(readBytes)}</span>
+    </span>
+    <button class="h-9 shrink-0 rounded-full bg-raised px-4 text-sm font-semibold text-danger" disabled={clearing} onclick={clearRead}>Borrar</button>
   </div>
 {/if}
 
