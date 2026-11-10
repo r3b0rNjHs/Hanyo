@@ -108,6 +108,10 @@ const MIGRATIONS: string[] = [
     PRIMARY KEY (chapter_id, idx)
   );
   `,
+  // v8: per-series new-chapter notifications (on by default).
+  `
+  ALTER TABLE series ADD COLUMN notify INTEGER NOT NULL DEFAULT 1;
+  `,
 ];
 
 export function openDb(dataDir: string): DB {

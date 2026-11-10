@@ -111,6 +111,8 @@ export interface SeriesSummary {
   shelf: Shelf;
   /** Download new chapters by themselves when the app is opened. */
   autoDownload: boolean;
+  /** Push notification when this series gets new chapters. */
+  notify: boolean;
   unreadCount: number;
   latestChapter: number | null;
   lastReadChapter: number | null;
