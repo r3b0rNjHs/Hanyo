@@ -13,7 +13,7 @@
   let { children } = $props();
 
   const tabs = [
-    { href: "/", label: "Biblio", icon: "library" },
+    { href: "/", label: "Biblioteca", icon: "library" },
     { href: "/search", label: "Buscar", icon: "search" },
     { href: "/downloads", label: "Descargas", icon: "download" },
     { href: "/settings", label: "Ajustes", icon: "settings" },
@@ -48,8 +48,9 @@
 </script>
 
 {#if !connection.online && !hideTabs}
-  <div class="pt-safe fixed inset-x-0 top-0 z-40 flex justify-center px-4">
-    <div class="mt-2 flex items-center gap-2 rounded-full bg-raised px-3.5 py-1.5 text-xs font-medium text-soft shadow-lg">
+  <!-- Sits just above the tab bar so it never covers a screen title. -->
+  <div class="fixed inset-x-0 z-40 flex justify-center px-4" style="bottom: calc(var(--safe-bottom) + var(--tabbar-gap) + var(--tabbar-h) + 10px)" role="status">
+    <div class="flex items-center gap-2 rounded-full border border-line bg-raised px-3.5 py-1.5 text-xs font-medium text-soft shadow-lg">
       <Icon name="cloudOff" size={14} /> Sin conexión · solo lo descargado
     </div>
   </div>
@@ -66,11 +67,12 @@
     style="bottom: calc(var(--safe-bottom) + var(--tabbar-gap))"
   >
     <ul
-      class="grid h-[var(--tabbar-h)] grid-cols-4 gap-1 rounded-full border border-line bg-raised/95 p-[7px] shadow-[0_12px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+      class="flex h-[var(--tabbar-h)] gap-1 rounded-full border border-line bg-raised/95 p-[7px] shadow-[0_12px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl"
     >
       {#each tabs as tab (tab.href)}
         {@const active = isActive(tab.href)}
-        <li class="min-w-0">
+        <!-- The active tab grows to fit its label; the others stay icon-only. -->
+        <li class="min-w-0 transition-[flex-grow] duration-200 {active ? 'grow-[2.2]' : 'grow'} basis-0">
           <a
             href={tab.href}
             aria-label={tab.label}
