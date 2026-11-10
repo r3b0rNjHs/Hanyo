@@ -125,6 +125,15 @@ describe("PageService source fallback", () => {
     expect(res.sourceName).toBe("MangaDex");
     expect(blocked.imageCalls).toBe(0);
   });
+
+  it("returns the page shapes it has learned", async () => {
+    const { library, pages } = setup({ blockedHasEverything: false, otherSourceHas: [31] });
+    const id = await library.open("mangadex", "md");
+    const ch = library.mergedChapters(id).find((c) => c.number === 31)!;
+    library.setPageRatio(ch.id, 1, 12.5);
+    const res = (await pages.chapterPages(ch.id))!;
+    expect(res.ratios).toEqual([null, 12.5]);
+  });
 });
 
 describe("PageService direct mode", () => {

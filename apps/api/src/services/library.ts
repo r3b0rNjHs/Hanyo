@@ -208,6 +208,23 @@ export class LibraryService {
     this.db.prepare("UPDATE series SET shelf = ? WHERE id = ?").run(shelf, seriesId);
   }
 
+  setPageRatio(chapterId: number, index: number, ratio: number): void {
+    this.db
+      .prepare("INSERT OR REPLACE INTO page_sizes (chapter_id, idx, ratio) VALUES (?, ?, ?)")
+      .run(chapterId, index, ratio);
+  }
+
+  /** Known page shapes for a chapter, null where the page hasn't been seen yet. */
+  pageRatios(chapterId: number, count: number): (number | null)[] {
+    const out: (number | null)[] = Array.from({ length: count }, () => null);
+    for (const r of this.db
+      .prepare<[number], { idx: number; ratio: number }>("SELECT idx, ratio FROM page_sizes WHERE chapter_id = ?")
+      .all(chapterId)) {
+      if (r.idx < count) out[r.idx] = r.ratio;
+    }
+    return out;
+  }
+
   setAutoDownload(seriesId: number, enabled: boolean): void {
     this.db.prepare("UPDATE series SET auto_download = ? WHERE id = ?").run(enabled ? 1 : 0, seriesId);
   }

@@ -8,7 +8,6 @@
 
 ## Product
 - [ ] Pinch-zoom in paged mode (@panzoom/panzoom)
-- [ ] Store page dimensions server-side so strip placeholders have exact size before load
 
 - [ ] Light theme variant of Pulso
 

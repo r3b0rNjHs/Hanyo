@@ -12,6 +12,7 @@
    */
   let {
     pages,
+    knownRatios = [],
     initialPage = 0,
     initialOffset = 0,
     onPage,
@@ -22,6 +23,8 @@
     footer,
   }: {
     pages: string[];
+    /** Page shapes the server already knows, so placeholders have the right height from the start. */
+    knownRatios?: (number | null)[];
     initialPage?: number;
     /** Where inside the initial page to start (0–1), restored once that page has its real height. */
     initialOffset?: number;
@@ -40,7 +43,7 @@
 
   // The reader is re-created (keyed) on every chapter or mode change, so only the
   // initial props matter here; untrack makes that explicit.
-  let ratios = $state<number[]>(untrack(() => pages.map(() => DEFAULT_RATIO)));
+  let ratios = $state<number[]>(untrack(() => pages.map((_, i) => knownRatios[i] ?? DEFAULT_RATIO)));
   let current = $state(untrack(() => initialPage));
   let slots: HTMLDivElement[] = $state([]);
   let endSentinel: HTMLDivElement;

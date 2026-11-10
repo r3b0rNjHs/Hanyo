@@ -230,6 +230,7 @@
         <StripView
           bind:this={view}
           pages={data.pages}
+          knownRatios={data.ratios}
           initialPage={current}
           initialOffset={offset}
           {onPage}
