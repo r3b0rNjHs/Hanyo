@@ -30,6 +30,11 @@
     void downloads.init();
     if (!dev && "serviceWorker" in navigator) {
       void navigator.serviceWorker.register("/service-worker.js", { type: "module" });
+      // On the very first visit the library is fetched before the service worker controls the
+      // page, so it never reaches the offline cache. Fetch it again once the worker is in charge.
+      const warm = () => void fetch("/api/library", { credentials: "same-origin" }).catch(() => undefined);
+      if (navigator.serviceWorker.controller) warm();
+      else navigator.serviceWorker.addEventListener("controllerchange", warm, { once: true });
     }
     const online = () => {
       connection.online = true;
