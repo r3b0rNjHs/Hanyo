@@ -6,6 +6,8 @@
   import Cover from "$lib/components/Cover.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import Spinner from "$lib/components/Spinner.svelte";
+  import Icon from "$lib/components/Icon.svelte";
+  import { libraryLinks } from "$lib/library-links";
 
   const STORE = "hanyo.explore";
   const langOf = (s: SourceInfo) => (s.lang === "all" ? "en" : s.lang.split("-")[0]!);
@@ -47,6 +49,8 @@
     hit?: SearchHit;
   }
   let hits = $state<Item[]>([]);
+  let owned = $state(new Map<string, number>());
+  const ownedId = (item: Item) => (item.hit ? owned.get(`${item.hit.sourceKey}|${item.hit.externalId}`) : undefined);
   let page = $state(0);
   let hasNext = $state(true);
   let loading = $state(false);
@@ -116,6 +120,8 @@
     // Trending titles aren't tied to a source: search them everywhere (search merges by AniList names).
     if (!item.hit) return goto(`/search?q=${encodeURIComponent(item.title)}`);
     const h = item.hit;
+    const mine = ownedId(item);
+    if (mine !== undefined) return goto(`/series/${mine}`);
     opening = item.id;
     try {
       const { id } = await api.openSeries(h.sourceKey, h.externalId);
@@ -128,6 +134,7 @@
   }
 
   onMount(() => {
+    void libraryLinks().then((m) => (owned = m));
     try {
       const saved = JSON.parse(localStorage.getItem(STORE) ?? "{}");
       if (saved.lang) lang = saved.lang;
@@ -239,6 +246,11 @@
   {#each hits as h (h.id)}
     <button class="relative min-w-0 self-start text-left" onclick={() => open(h)} disabled={opening !== null}>
       <Cover src={h.coverUrl} alt={h.title} />
+      {#if ownedId(h) !== undefined}
+        <span class="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-accent text-on-accent" aria-label="En tu biblioteca">
+          <Icon name="bookmark" size={13} filled stroke={2.2} />
+        </span>
+      {/if}
       {#if opening === h.id}
         <div class="absolute inset-0 flex aspect-[3/4] items-center justify-center rounded-[var(--radius-card)] bg-base/60"><Spinner /></div>
       {/if}

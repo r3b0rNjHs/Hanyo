@@ -8,6 +8,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import Spinner from "$lib/components/Spinner.svelte";
   import { groupAndRank, PRIMARY_RESULTS, type ResultGroup } from "$lib/search-rank";
+  import { libraryLinks } from "$lib/library-links";
 
   let sources = $state<SourceInfo[]>([]);
   let query = $state(page.url.searchParams.get("q") ?? "");
@@ -25,7 +26,12 @@
   let controller: AbortController | null = null;
   let input: HTMLInputElement;
 
+  let owned = $state(new Map<string, number>());
+  /** Library series id if any hit of the group is already in the library. */
+  const ownedId = (g: ResultGroup) => g.hits.map((h) => owned.get(`${h.sourceKey}|${h.externalId}`)).find((id) => id !== undefined);
+
   onMount(async () => {
+    void libraryLinks().then((m) => (owned = m));
     sources = await api.sources().catch(() => []);
     if (query) void run();
     else input.focus();
@@ -77,6 +83,8 @@
   }
 
   async function open(g: ResultGroup) {
+    const mine = ownedId(g);
+    if (mine !== undefined) return goto(`/series/${mine}`);
     opening = g.key;
     try {
       // Open the English version when there is one (MangaDex first); the series page can switch language.
@@ -139,6 +147,7 @@
         <div class="min-w-0 flex-1">
           <p class="font-display line-clamp-2 text-[17px] leading-snug font-semibold tracking-tight">{g.title}</p>
           {#if g.aka.length}<p class="mt-0.5 truncate text-xs text-muted">También: {g.aka.join(" · ")}</p>{/if}
+          {#if ownedId(g) !== undefined}<p class="mt-1 flex items-center gap-1 text-xs font-semibold text-accent-soft"><Icon name="bookmark" size={12} filled /> En tu biblioteca</p>{/if}
           <div class="mt-2 flex flex-wrap gap-1">
             {#each g.hits as h (h.sourceKey)}
               <span class="rounded-full bg-raised px-2 py-0.5 text-[11px] font-medium text-soft">{h.sourceName}<span class="ml-1 text-faint uppercase">{h.lang}</span></span>

@@ -83,4 +83,10 @@ test("explore lists the source's series", async ({ page }) => {
   await page.goto("/explore");
   await page.getByRole("tab", { name: "Demo" }).click();
   await expect(page.getByRole("button", { name: /Demo Paged/ })).toBeVisible();
+  // Demo Strip was added in the first test: marked, and it opens the library series directly.
+  const owned = page.getByRole("button", { name: /Demo Strip/ });
+  await expect(owned.getByLabel("En tu biblioteca")).toBeVisible();
+  await owned.click();
+  await page.waitForURL(/\/series\/\d+/);
+  await expect(page.getByRole("button", { name: /Lista:/ })).toBeVisible();
 });
