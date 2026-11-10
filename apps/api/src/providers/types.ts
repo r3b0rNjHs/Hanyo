@@ -39,6 +39,8 @@ export interface Provider {
   readonly id: "mangadex" | "suwayomi";
   listSources(): Promise<SourceInfo[]>;
   search(sourceId: string, query: string): Promise<RawHit[]>;
+  /** One page (1-based) of the source's popular or recently updated series. */
+  browse(sourceId: string, kind: "popular" | "latest", page: number): Promise<{ hits: RawHit[]; hasNextPage: boolean }>;
   getSeries(sourceId: string, externalId: string): Promise<RawSeries>;
   /** Absolute upstream image URLs for a chapter, in reading order. May expire (MangaDex ~15 min). */
   getPageUrls(sourceId: string, chapterExternalId: string): Promise<string[]>;

@@ -1,5 +1,7 @@
 import type {
   ChapterPages,
+  ExploreKind,
+  ExploreResponse,
   ProgressUpdate,
   SearchMetaResponse,
   SearchResponse,
@@ -58,6 +60,9 @@ export const api = {
   sources: () => request<SourceInfo[]>("/sources"),
   search: (source: string, q: string, signal?: AbortSignal) =>
     request<SearchResponse>(`/search?source=${encodeURIComponent(source)}&q=${encodeURIComponent(q)}`, { signal }),
+
+  explore: (source: string, kind: ExploreKind, page: number) =>
+    request<ExploreResponse>(`/explore?source=${encodeURIComponent(source)}&kind=${kind}&page=${page}`),
 
   searchMeta: (q: string, signal?: AbortSignal) =>
     request<SearchMetaResponse>(`/search/meta?q=${encodeURIComponent(q)}`, { signal }),

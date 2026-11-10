@@ -36,6 +36,9 @@ class FakeProvider implements Provider {
     if (!s) throw new Error("not found");
     return structuredClone(s);
   }
+  async browse() {
+    return { hits: [], hasNextPage: false };
+  }
   async getPageUrls() {
     return [];
   }
