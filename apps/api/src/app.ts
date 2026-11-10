@@ -115,6 +115,17 @@ export function createApp(d: AppDeps): Hono {
 
   // Popular / latest per source. Cached a few minutes: the Explore tab is browsed page by page
   // and going back and forth shouldn't hit the source again.
+  app.get("/explore/trending", async (c) => {
+    const { origin, page } = z
+      .object({ origin: z.enum(["KR", "JP", "CN", "all"]).default("KR"), page: z.coerce.number().int().min(1).max(50).default(1) })
+      .parse(c.req.query());
+    try {
+      return c.json(await d.titles.trending(origin, page));
+    } catch (e) {
+      return c.json<ApiError>({ error: `AniList: ${(e as Error).message}` }, 502);
+    }
+  });
+
   const exploreCache = new Map<string, { at: number; body: ExploreResponse }>();
   app.get("/explore", async (c) => {
     const { source: key, kind, page } = z

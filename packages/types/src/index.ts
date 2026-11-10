@@ -67,6 +67,16 @@ export interface ExploreResponse {
   hasNextPage: boolean;
 }
 
+/** Country of origin filter for AniList trending: KR manhwa, JP manga, CN manhua. */
+export type TrendingOrigin = "KR" | "JP" | "CN" | "all";
+
+/** What is being read right now across the community (AniList trending), source-independent. */
+export interface TrendingResponse {
+  page: number;
+  hasNextPage: boolean;
+  items: { cluster: TitleCluster; coverUrl: string | null }[];
+}
+
 export interface SeriesSourceLink {
   id: number;
   sourceKey: string;
