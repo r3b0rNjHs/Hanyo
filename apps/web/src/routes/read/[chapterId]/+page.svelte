@@ -197,7 +197,12 @@
           >
             <span class="text-xs font-semibold tracking-[0.08em] text-muted uppercase">Siguiente</span>
             <span class="flex items-center gap-3.5">
-              <span class="font-display flex h-[86px] w-16 shrink-0 items-end rounded-[14px] bg-accent p-2 text-xl font-bold text-on-accent">{data!.nextChapterNumber ?? "→"}</span>
+              <span class="relative h-[86px] w-16 shrink-0 overflow-hidden rounded-[14px] bg-accent">
+                {#if data!.seriesCover}
+                  <img src={data!.seriesCover} alt="" class="absolute inset-0 h-full w-full object-cover" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")} />
+                {/if}
+                <span class="font-display absolute bottom-1 left-1 rounded-lg bg-accent px-1.5 text-base font-bold text-on-accent">{data!.nextChapterNumber ?? "→"}</span>
+              </span>
               <span class="flex flex-col gap-1">
                 <span class="font-display text-2xl font-bold tracking-tight">{chapterLabel(data!.nextChapterNumber)}</span>
                 <span class="text-[13px] text-muted">{nextIsDownloaded ? "Descargado · disponible sin conexión" : connection.online ? "Se cargará online" : "No descargado"}</span>
