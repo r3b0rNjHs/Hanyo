@@ -1,8 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" rx="112" fill="#8E7CFF"/>
-  <!-- Geometric H in the base ink, with a coral "new" dot -->
-  <rect x="132" y="112" width="84" height="288" rx="18" fill="#0B0B10"/>
-  <rect x="296" y="112" width="84" height="288" rx="18" fill="#0B0B10"/>
-  <rect x="190" y="218" width="132" height="76" rx="14" fill="#0B0B10"/>
-  <circle cx="392" cy="120" r="40" fill="#FF8A73"/>
+  <!-- 한 (han), the first syllable of 한지 hanji: ㅎ + ㅏ over ㄴ, built from geometric strokes -->
+  <rect x="140" y="92" width="64" height="30" rx="15" fill="#0B0B10"/>
+  <rect x="100" y="140" width="144" height="30" rx="15" fill="#0B0B10"/>
+  <circle cx="172" cy="232" r="48" fill="none" stroke="#0B0B10" stroke-width="30"/>
+  <rect x="300" y="84" width="34" height="220" rx="17" fill="#0B0B10"/>
+  <rect x="320" y="178" width="76" height="30" rx="15" fill="#0B0B10"/>
+  <rect x="128" y="334" width="34" height="96" rx="17" fill="#0B0B10"/>
+  <rect x="128" y="400" width="272" height="30" rx="15" fill="#0B0B10"/>
+  <circle cx="404" cy="104" r="30" fill="#FF8A73"/>
 </svg>
