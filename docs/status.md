@@ -16,8 +16,12 @@ _Last updated: 2026-11-09_
 - **Deploy**: `deploy/setup.sh` (one-shot), `deploy/deploy.sh` (CI), Docker compose for Suwayomi + FlareSolverr,
   Caddy site via `import`, GitHub Actions CI + deploy (gated by `DEPLOY_ENABLED`).
 
+- **Sources**: 19 Suwayomi sources + MangaDex verified from the VPS through Cloudflare WARP (ADR-010);
+  library series re-link automatically when the source set changes (AniList alt titles help matching).
+- **Reading lists**: Leyendo / Pendiente / En pausa / Terminada, filters in the library; planned or paused
+  series move to Leyendo when opened in the reader.
+
 ## Not yet verified on real hardware
-- iOS Safari standalone: install, push, wake lock, memory behaviour with long strips.
-- Suwayomi sources (Weeb Central, Comix, Asura, Flame) end-to-end.
+- iOS Safari standalone: push, wake lock, memory behaviour with long strips.
 
 Screenshots: `docs/screenshots/`.

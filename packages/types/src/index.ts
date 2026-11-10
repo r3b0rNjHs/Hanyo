@@ -70,12 +70,17 @@ export interface SeriesSourceLink {
   priority: number;
 }
 
+/** Reading list a library series is on. */
+export type Shelf = "reading" | "plan" | "paused" | "completed";
+
 export interface SeriesSummary {
   id: number;
   title: string;
   coverUrl: string | null;
   status: SeriesStatus;
   inLibrary: boolean;
+  /** Reading list (meaningful only while inLibrary). */
+  shelf: Shelf;
   unreadCount: number;
   latestChapter: number | null;
   lastReadChapter: number | null;

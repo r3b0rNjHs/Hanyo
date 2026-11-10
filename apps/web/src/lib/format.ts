@@ -28,3 +28,15 @@ export const statusLabel: Record<string, string> = {
   cancelled: "Cancelada",
   unknown: "Estado desconocido",
 };
+
+/** Reading lists, in display order. */
+export const SHELVES = [
+  ["reading", "Leyendo"],
+  ["plan", "Pendiente"],
+  ["paused", "En pausa"],
+  ["completed", "Terminada"],
+] as const;
+
+export function shelfLabel(shelf: string): string {
+  return SHELVES.find(([k]) => k === shelf)?.[1] ?? shelf;
+}

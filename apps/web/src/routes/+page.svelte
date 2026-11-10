@@ -7,9 +7,10 @@
   import PageHeader from "$lib/components/PageHeader.svelte";
   import Spinner from "$lib/components/Spinner.svelte";
   import { downloads } from "$lib/offline/downloads.svelte";
-  import { chapterLabel } from "$lib/format";
+  import { chapterLabel, SHELVES } from "$lib/format";
 
-  type Filter = "all" | "new" | "downloaded";
+  type Filter = "all" | "new" | "downloaded" | SeriesSummary["shelf"];
+  const FILTERS: (readonly [Filter, string])[] = [["all", "Todas"], ["new", "Nuevos"], ...SHELVES, ["downloaded", "Descargadas"]];
 
   let items = $state<SeriesSummary[] | null>(null);
   let error = $state<string | null>(null);
@@ -22,14 +23,12 @@
   const reading = $derived((items ?? []).filter((s) => s.lastReadChapter !== null && s.nextChapter !== null).slice(0, 10));
   /** New chapters since where you left off. */
   const hasNew = (s: SeriesSummary) => s.lastReadChapter !== null && s.unreadCount > 0;
-  const counts = $derived({
-    all: items?.length ?? 0,
-    new: (items ?? []).filter(hasNew).length,
-    downloaded: (items ?? []).filter((s) => downloadedSeries.has(s.id)).length,
-  });
-  const visible = $derived(
-    (items ?? []).filter((s) => (filter === "new" ? hasNew(s) : filter === "downloaded" ? downloadedSeries.has(s.id) : true)),
-  );
+  const matches = (s: SeriesSummary, f: Filter) =>
+    f === "all" ? true : f === "new" ? hasNew(s) : f === "downloaded" ? downloadedSeries.has(s.id) : s.shelf === f;
+  const counts = $derived(Object.fromEntries(FILTERS.map(([f]) => [f, (items ?? []).filter((s) => matches(s, f)).length])));
+  /** Empty lists stay hidden so the chip row stays short. */
+  const shownFilters = $derived(FILTERS.filter(([f]) => f === "all" || f === "new" || f === filter || counts[f]! > 0));
+  const visible = $derived((items ?? []).filter((s) => matches(s, filter)));
 
   function progress(s: SeriesSummary): number {
     if (!s.latestChapter || s.lastReadChapter === null) return 0;
@@ -134,7 +133,7 @@
   {/if}
 
   <div role="tablist" aria-label="Filtros" class="no-scrollbar mt-5 flex gap-2 overflow-x-auto px-5">
-    {#each [["all", "Todas"], ["new", "Nuevos"], ["downloaded", "Descargadas"]] as const as [key, label] (key)}
+    {#each shownFilters as [key, label] (key)}
       {@const selected = filter === key}
       <button
         role="tab"
@@ -147,8 +146,8 @@
         {label}
         {#if key === "new" && counts.new > 0}
           <span class="rounded-lg bg-fresh px-1.5 text-[11px] leading-[18px] font-bold text-on-fresh">{counts.new}</span>
-        {:else if key === "all"}
-          <span class={selected ? "" : "text-muted"}>· {counts.all}</span>
+        {:else if key !== "new"}
+          <span class={selected ? "" : "text-muted"}>· {counts[key]}</span>
         {/if}
       </button>
     {/each}
@@ -156,7 +155,11 @@
 
   {#if visible.length === 0}
     <p class="px-6 py-16 text-center text-sm text-muted">
-      {filter === "new" ? "No hay capítulos nuevos en las series que sigues." : "Todavía no has descargado nada."}
+      {filter === "new"
+        ? "No hay capítulos nuevos en las series que sigues."
+        : filter === "downloaded"
+          ? "Todavía no has descargado nada."
+          : "No hay series en esta lista."}
     </p>
   {:else}
     <div class="mt-4 grid grid-cols-2 gap-x-3.5 gap-y-5 px-5">

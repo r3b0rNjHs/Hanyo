@@ -5,6 +5,7 @@ import type {
   SeriesSourceLink,
   SeriesStatus,
   SeriesSummary,
+  Shelf,
 } from "@hanyo/types";
 import type { DB } from "../db/index.js";
 import { normalizeTitle } from "../lib/text.js";
@@ -24,6 +25,7 @@ interface SeriesRow {
   last_checked_at: number | null;
   updated_at: number;
   lang: string;
+  shelf: Shelf;
 }
 
 /** "es-419" → "es"; multi-language ("all") sources are read as English. */
@@ -197,6 +199,12 @@ export class LibraryService {
     this.db
       .prepare("UPDATE series SET in_library = ?, added_at = CASE WHEN ? THEN COALESCE(added_at, ?) ELSE added_at END WHERE id = ?")
       .run(inLibrary ? 1 : 0, inLibrary ? 1 : 0, Date.now(), seriesId);
+  }
+
+  /** Move a series to a reading list (adding it to the library if needed). */
+  setShelf(seriesId: number, shelf: Shelf): void {
+    this.setInLibrary(seriesId, true);
+    this.db.prepare("UPDATE series SET shelf = ? WHERE id = ?").run(shelf, seriesId);
   }
 
   listLibrary(): SeriesSummary[] {
@@ -380,6 +388,8 @@ export class LibraryService {
            ON CONFLICT(series_id) DO UPDATE SET chapter_id = excluded.chapter_id, page = excluded.page, updated_at = excluded.updated_at`,
         )
         .run(seriesId, completed && ctx.nextId ? ctx.nextId : chapterId, completed ? 0 : page, now);
+      // Opening a planned or paused series in the reader means you're reading it now.
+      this.db.prepare("UPDATE series SET shelf = 'reading' WHERE id = ? AND shelf IN ('plan', 'paused')").run(seriesId);
       if (completed && ctx.chapter.number !== null) {
         this.db
           .prepare("INSERT OR IGNORE INTO read_marks (series_id, number, read_at) VALUES (?, ?, ?)")
@@ -457,6 +467,7 @@ export class LibraryService {
       coverUrl: row.cover_url,
       status: row.status,
       inLibrary: row.in_library === 1,
+      shelf: row.shelf,
       unreadCount: numbered.filter((c) => !c.read).length,
       latestChapter: numbered.length ? numbered[numbered.length - 1]!.number : null,
       lastReadChapter: lastRead,
