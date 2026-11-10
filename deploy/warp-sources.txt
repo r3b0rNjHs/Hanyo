@@ -1,0 +1,4 @@
+# Sources that need WARP (blocked from the VPS IP). Test with:
+#   python3 deploy/test-sources.py deploy/warp-sources.txt
+eu.kanade.tachiyomi.extension.en.weebcentral
+eu.kanade.tachiyomi.extension.en.comix

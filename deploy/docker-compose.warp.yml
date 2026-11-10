@@ -1,0 +1,46 @@
+# Optional: send all Suwayomi traffic (searches, chapter lists, page images) and FlareSolverr
+# through Cloudflare WARP, so sites that block datacenter IPs see a regular consumer exit IP.
+# Weeb Central allows anonymous personal use but bans the VPS IP at Cloudflare.
+#
+# Enable (sticky: plain `docker compose` commands in deploy/ then include this file):
+#   echo 'COMPOSE_FILE=docker-compose.yml:docker-compose.warp.yml' > deploy/.env
+#   cd deploy && sudo docker compose up -d
+# Check:    sudo docker compose exec warp curl -s https://cloudflare.com/cdn-cgi/trace | grep warp=
+# Disable:  rm deploy/.env && sudo docker compose up -d --remove-orphans
+services:
+  warp:
+    image: caomingjun/warp:latest
+    restart: unless-stopped
+    # WARP needs a TUN device and NET_ADMIN; the container is the only thing it can reconfigure.
+    device_cgroup_rules:
+      - "c 10:200 rwm"
+    cap_add:
+      - NET_ADMIN
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv4.conf.all.src_valid_mark=1
+    environment:
+      WARP_SLEEP: "5"
+    volumes:
+      - warp-data:/var/lib/cloudflare-warp
+    mem_limit: 256m
+
+  suwayomi:
+    environment:
+      SOCKS_PROXY_ENABLED: "true"
+      SOCKS_PROXY_VERSION: "5"
+      SOCKS_PROXY_HOST: warp
+      SOCKS_PROXY_PORT: "1080"
+      # FlareSolverr shares the warp container's network, so it is reached through it.
+      FLARESOLVERR_URL: "http://warp:8191"
+    depends_on:
+      - warp
+
+  flaresolverr:
+    # Chrome inside FlareSolverr then leaves through the WARP tunnel too.
+    network_mode: "service:warp"
+    depends_on:
+      - warp
+
+volumes:
+  warp-data:
