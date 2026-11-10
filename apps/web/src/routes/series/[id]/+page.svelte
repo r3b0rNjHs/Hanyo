@@ -5,6 +5,7 @@
   import { api } from "$lib/api";
   import Icon from "$lib/components/Icon.svelte";
   import Spinner from "$lib/components/Spinner.svelte";
+  import SwipeRow from "$lib/components/SwipeRow.svelte";
   import { downloads } from "$lib/offline/downloads.svelte";
   import { AUTO_AHEAD, nextUnread } from "$lib/offline/auto-download";
   import { chapterLabel, formatBytes, relativeDate, SHELVES, shelfLabel, statusLabel } from "$lib/format";
@@ -126,9 +127,10 @@
   /** Chapters released after where you left off (only once you've started), newest first. */
   const fresh = $derived(
     s && lastRead !== null
-      ? s.chapters.filter((c) => !c.read && c.number !== null && c.number > lastRead).reverse().slice(0, 3)
+      ? s.chapters.filter((c) => !c.read && c.number !== null && c.number > lastRead).reverse()
       : [],
   );
+  const freshIds = $derived(new Set(fresh.map((c) => c.id)));
   const statusDot: Record<string, string> = {
     ongoing: "bg-ok",
     completed: "bg-accent-soft",
@@ -238,7 +240,7 @@
   </div>
 {:else}
   <!-- Hero: the cover, full bleed -->
-  <div class="relative h-[300px] overflow-hidden bg-accent">
+  <div class="relative h-[230px] overflow-hidden bg-accent">
     {#if s.coverUrl}
       <img src={s.coverUrl} alt="" class="absolute inset-0 h-full w-full object-cover object-top" />
     {:else}
@@ -350,40 +352,6 @@
       </button>
     {/if}
 
-    {#if fresh.length > 0}
-      <section aria-label="Capítulos nuevos" class="mt-6">
-        <div class="flex items-baseline justify-between">
-          <h2 class="font-display text-lg font-semibold">Nuevos</h2>
-          <button class="text-[13px] font-medium text-accent-soft" onclick={() => download(fresh)}>Descargar {fresh.length === 1 ? "" : `los ${fresh.length}`}</button>
-        </div>
-        <ul class="mt-2 space-y-2">
-          {#each fresh as c (c.id)}
-            {@const st = downloads.status(c.id)}
-            <li class="flex items-center gap-3 rounded-[18px] bg-surface pr-1 pl-3.5">
-              <span class="rounded-lg bg-fresh px-1.5 py-0.5 text-[11px] font-bold text-on-fresh">NUEVO</span>
-              <a href="/read/{c.id}" class="min-w-0 flex-1 py-3">
-                <p class="truncate text-[15px] font-semibold">{chapterLabel(c.number, c.title)}</p>
-                <p class="truncate text-xs text-muted">{relativeDate(c.publishedAt)}{c.publishedAt ? " · " : ""}{c.sourceName}</p>
-              </a>
-              <button
-                class="flex h-11 w-10 items-center justify-center {st === 'downloaded' ? 'text-ok' : 'text-muted'}"
-                onclick={() => rowDownload(c)}
-                aria-label={st === "none" ? `Descargar ${chapterLabel(c.number)}` : st === "queued" ? "Cancelar descarga" : st === "active" ? "Descargando" : "Descargado"}
-              >
-                {#if st === "downloaded"}<Icon name="check" size={18} stroke={2.6} />
-                {:else if st === "active"}<Spinner size={18} />
-                {:else if st === "queued"}<span class="h-2 w-2 rounded-full bg-muted"></span>
-                {:else}<Icon name="download" size={18} stroke={2} />{/if}
-              </button>
-              <button class="flex h-11 w-9 items-center justify-center text-muted" onclick={() => (menuFor = c)} aria-label="Opciones de {chapterLabel(c.number)}">
-                <Icon name="more" size={20} stroke={3} />
-              </button>
-            </li>
-          {/each}
-        </ul>
-      </section>
-    {/if}
-
     <section aria-label="Todos los capítulos" class="mt-6">
       <div class="flex items-baseline justify-between">
         <h2 class="font-display text-lg font-semibold">Capítulos</h2>
@@ -406,29 +374,40 @@
         {#each ordered.slice(0, shown) as c (c.id)}
           {@const st = downloads.status(c.id)}
           {@const current = s.resume?.chapterId === c.id}
-          <li class="flex items-center">
-            <a href="/read/{c.id}" class="min-w-0 flex-1 py-3">
-              <p class="truncate text-[15px] {c.read ? 'text-faint' : current ? 'font-semibold text-accent-soft' : 'font-medium'}">
-                {chapterLabel(c.number, c.title)}
-                {#if c.title && c.number !== null && !/^ch(apter)?\.?\s*\d/i.test(c.title)}<span class="font-normal text-muted"> · {c.title}</span>{/if}
-              </p>
-              <p class="truncate text-xs text-muted">
-                {#if current && s.resume}Leyendo · pág. {s.resume.page + 1}{:else}{relativeDate(c.publishedAt)}{c.publishedAt ? " · " : ""}{c.sourceName}{c.scanlator ? ` · ${c.scanlator}` : ""}{/if}
-              </p>
-            </a>
-            <button
-              class="flex h-12 w-10 items-center justify-center {st === 'downloaded' ? 'text-ok' : 'text-muted'}"
-              onclick={() => rowDownload(c)}
-              aria-label={st === "none" ? `Descargar ${chapterLabel(c.number)}` : st === "queued" ? "Cancelar descarga" : st === "active" ? "Descargando" : "Descargado"}
-            >
-              {#if st === "downloaded"}<Icon name="check" size={17} stroke={2.6} />
-              {:else if st === "active"}<Spinner size={17} />
-              {:else if st === "queued"}<span class="h-2 w-2 rounded-full bg-muted"></span>
-              {:else}<Icon name="download" size={18} stroke={2} />{/if}
-            </button>
-            <button class="flex h-12 w-11 items-center justify-center text-muted" onclick={() => (menuFor = c)} aria-label="Opciones de {chapterLabel(c.number, c.title)}">
-              <Icon name="more" size={20} stroke={3} />
-            </button>
+          <li>
+            <SwipeRow>
+              {#snippet actions(close)}
+                <button
+                  class="flex-1 bg-accent text-xs font-semibold text-on-accent"
+                  onclick={() => { close(); void setRead(c, !c.read); }}
+                >{c.read ? "No leído" : "Leído"}</button>
+                <button class="flex-1 bg-raised text-xs font-semibold" onclick={() => { close(); menuFor = c; }}>Más</button>
+              {/snippet}
+              <div class="flex items-center">
+                <a href="/read/{c.id}" class="min-w-0 flex-1 py-3">
+                  <p class="flex items-center gap-2 truncate text-[15px] {c.read ? 'text-faint' : current ? 'font-semibold text-accent-soft' : 'font-medium'}">
+                    {#if freshIds.has(c.id)}<span class="shrink-0 rounded-md bg-fresh px-1.5 text-[10px] leading-[18px] font-bold text-on-fresh">NUEVO</span>{/if}
+                    <span class="truncate">
+                      {chapterLabel(c.number, c.title)}
+                      {#if c.title && c.number !== null && !/^ch(apter)?\.?\s*\d/i.test(c.title)}<span class="font-normal text-muted"> · {c.title}</span>{/if}
+                    </span>
+                  </p>
+                  <p class="truncate text-xs text-muted">
+                    {#if current && s.resume}Leyendo · pág. {s.resume.page + 1}{:else}{relativeDate(c.publishedAt)}{c.publishedAt ? " · " : ""}{c.sourceName}{c.scanlator ? ` · ${c.scanlator}` : ""}{/if}
+                  </p>
+                </a>
+                <button
+                  class="flex h-12 w-11 items-center justify-center {st === 'downloaded' ? 'text-ok' : 'text-muted'}"
+                  onclick={() => rowDownload(c)}
+                  aria-label={st === "none" ? `Descargar ${chapterLabel(c.number)}` : st === "queued" ? "Cancelar descarga" : st === "active" ? "Descargando" : "Descargado"}
+                >
+                  {#if st === "downloaded"}<Icon name="check" size={17} stroke={2.6} />
+                  {:else if st === "active"}<Spinner size={17} />
+                  {:else if st === "queued"}<span class="h-2 w-2 rounded-full bg-muted"></span>
+                  {:else}<Icon name="download" size={18} stroke={2} />{/if}
+                </button>
+              </div>
+            </SwipeRow>
           </li>
         {/each}
       </ul>
@@ -488,6 +467,7 @@
   <div class="pb-safe fixed inset-x-0 bottom-0 z-50 rounded-t-[28px] bg-raised p-3" role="dialog" aria-label="Descargar">
     <p class="font-display px-3 pt-2 text-lg font-semibold">Descargar</p>
     <p class="px-3 pb-3 text-sm text-muted">Para leer sin conexión</p>
+    {#if fresh.length}<button class="sheet-btn" onclick={() => download(fresh)}>Los nuevos ({fresh.length})</button>{/if}
     {#if next5.length}<button class="sheet-btn" onclick={() => download(next5)}>Los próximos {next5.length}</button>{/if}
     <button class="sheet-btn" disabled={!unread.length} onclick={() => download(unread)}>Todos los no leídos ({unread.length})</button>
     <button class="sheet-btn" disabled={dl.done === s.chapters.length} onclick={() => download(s!.chapters)}>Toda la serie ({s.chapters.length})</button>
