@@ -17,6 +17,51 @@
   let newestFirst = $state(true);
   let menuFor = $state<ChapterSummary | null>(null);
   let downloadMenu = $state(false);
+  let sourcesOpen = $state(false);
+  let sourcesBusy = $state<string | null>(null);
+  let sourcesMsg = $state<string | null>(null);
+  /** Linked sources, preferred first (lower priority value wins for duplicated chapter numbers). */
+  const linked = $derived(s ? [...s.sources].sort((a, b) => a.priority - b.priority || a.id - b.id) : []);
+
+  async function makePreferred(linkId: number) {
+    if (!s) return;
+    sourcesBusy = `pref-${linkId}`;
+    try {
+      const min = Math.min(...s.sources.map((x) => x.priority));
+      s = await api.setSourcePriority(s.id, linkId, min - 10);
+    } catch (e) {
+      sourcesMsg = (e as Error).message;
+    } finally {
+      sourcesBusy = null;
+    }
+  }
+
+  async function removeSource(linkId: number) {
+    if (!s) return;
+    sourcesBusy = `del-${linkId}`;
+    try {
+      s = await api.unlinkSource(s.id, linkId);
+    } catch (e) {
+      sourcesMsg = (e as Error).message;
+    } finally {
+      sourcesBusy = null;
+    }
+  }
+
+  async function findMoreSources() {
+    if (!s) return;
+    sourcesBusy = "find";
+    sourcesMsg = null;
+    try {
+      const r = await api.autoLink(s.id);
+      s = r.detail;
+      sourcesMsg = r.added.length ? `Añadida: ${r.added.join(", ")}` : "No está con el mismo título en otras fuentes.";
+    } catch (e) {
+      sourcesMsg = (e as Error).message;
+    } finally {
+      sourcesBusy = null;
+    }
+  }
 
   $effect(() => {
     void load(id);
@@ -139,10 +184,10 @@
         <p class="font-display text-lg font-bold">{s.chapters.length}</p>
         <p class="text-xs text-muted">capítulos</p>
       </div>
-      <div class="rounded-2xl bg-surface px-3 py-2.5">
-        <p class="font-display text-lg font-bold">{s.sources.length}</p>
+      <button class="rounded-2xl bg-surface px-3 py-2.5 text-left active:bg-raised" onclick={() => (sourcesOpen = true)} aria-label="Gestionar fuentes">
+        <p class="font-display flex items-center justify-between text-lg font-bold">{s.sources.length}<Icon name="chevronRight" size={16} class="text-faint" /></p>
         <p class="truncate text-xs text-muted">{s.sources.length === 1 ? "fuente" : "fuentes"}</p>
-      </div>
+      </button>
       <div class="rounded-2xl bg-surface px-3 py-2.5">
         <p class="flex h-7 items-center"><span class="h-2.5 w-2.5 rounded-full {statusDot[s.status]}"></span></p>
         <p class="truncate text-xs text-muted">{statusLabel[s.status]?.toLowerCase()}</p>
@@ -270,5 +315,50 @@
     <button class="sheet-btn" disabled={!unread.length} onclick={() => download(unread)}>Todos los no leídos ({unread.length})</button>
     <button class="sheet-btn" onclick={() => download(s!.chapters)}>Todos ({s.chapters.length})</button>
     <button class="sheet-btn mt-1 text-muted" onclick={() => (downloadMenu = false)}>Cancelar</button>
+  </div>
+{/if}
+
+{#if sourcesOpen && s}
+  <button class="fixed inset-0 z-40 bg-black/60" onclick={() => (sourcesOpen = false)} aria-label="Cerrar"></button>
+  <div class="pb-safe fixed inset-x-0 bottom-0 z-50 max-h-[80dvh] overflow-y-auto rounded-t-[28px] bg-raised p-4" role="dialog" aria-label="Fuentes de la serie">
+    <p class="font-display px-1 text-lg font-semibold">Fuentes</p>
+    <p class="px-1 pb-3 text-sm text-muted">Si un capítulo está en varias, se lee de la preferida. Si falla, se prueba la siguiente.</p>
+    <ul class="space-y-2">
+      {#each linked as src, i (src.id)}
+        <li class="rounded-[var(--radius-card)] bg-surface p-3.5">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="flex items-center gap-2 font-semibold">
+                {src.sourceName}
+                {#if i === 0}<span class="rounded-full bg-accent px-2 py-0.5 text-[11px] font-bold text-on-accent">Preferida</span>{/if}
+              </p>
+              <p class="mt-0.5 text-xs text-muted">
+                {src.chapterCount} capítulos{src.latestChapter !== null ? ` · hasta el ${src.latestChapter}` : ""}
+              </p>
+            </div>
+            {#if src.url}
+              <a href={src.url} target="_blank" rel="noopener noreferrer" class="shrink-0 text-xs text-accent-soft">Ver web</a>
+            {/if}
+          </div>
+          <div class="mt-3 flex gap-2">
+            {#if i !== 0}
+              <button class="h-9 rounded-full bg-raised px-3.5 text-[13px] font-semibold disabled:opacity-40" disabled={sourcesBusy !== null || offline} onclick={() => makePreferred(src.id)}>
+                {sourcesBusy === `pref-${src.id}` ? "…" : "Hacer preferida"}
+              </button>
+            {/if}
+            {#if linked.length > 1}
+              <button class="h-9 rounded-full px-3.5 text-[13px] font-semibold text-danger disabled:opacity-40" disabled={sourcesBusy !== null || offline} onclick={() => removeSource(src.id)}>
+                {sourcesBusy === `del-${src.id}` ? "…" : "Quitar"}
+              </button>
+            {/if}
+          </div>
+        </li>
+      {/each}
+    </ul>
+    {#if sourcesMsg}<p class="mt-3 px-1 text-sm text-soft" role="status">{sourcesMsg}</p>{/if}
+    <button class="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-accent font-bold text-on-accent disabled:opacity-50" disabled={sourcesBusy !== null || offline} onclick={findMoreSources}>
+      {#if sourcesBusy === "find"}<Spinner size={18} /> Buscando…{:else}<Icon name="search" size={18} stroke={2.4} /> Buscar en otras fuentes{/if}
+    </button>
+    <button class="mt-1 h-12 w-full rounded-full font-semibold text-muted active:bg-white/5" onclick={() => (sourcesOpen = false)}>Cerrar</button>
   </div>
 {/if}
