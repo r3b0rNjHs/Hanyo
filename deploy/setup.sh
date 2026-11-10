@@ -33,7 +33,8 @@ sudo apt-get install -y rsync sqlite3 >/dev/null
 
 say "[3/8] Cloning repository"
 sudo -u "$DEPLOY_USER" bash -c 'mkdir -p ~/.ssh && ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null; sort -u -o ~/.ssh/known_hosts ~/.ssh/known_hosts'
-if [ ! -d "$APP_DIR/.git" ]; then
+# /home/deploy is private to `deploy` (mode 750): every check inside it runs through sudo.
+if ! sudo test -d "$APP_DIR/.git"; then
   if ! sudo -u "$DEPLOY_USER" git clone "$REPO" "$APP_DIR"; then
     echo
     echo "Clone failed. If the repo is private, add this key as a read-only Deploy Key in"
@@ -45,10 +46,14 @@ if [ ! -d "$APP_DIR/.git" ]; then
 fi
 
 say "[4/8] Secrets (.env)"
-if [ ! -f "$APP_DIR/.env" ]; then
-  read -r -s -p "Choose the Hanyo app password: " HANYO_PASSWORD; echo
+if ! sudo test -f "$APP_DIR/.env"; then
+  HANYO_PASSWORD=""
+  while [ -z "$HANYO_PASSWORD" ]; do
+    read -r -s -p "Choose the Hanyo app password (not shown while typing): " HANYO_PASSWORD; echo
+    [ -z "$HANYO_PASSWORD" ] && echo "The password can't be empty: the app is reachable from the internet."
+  done
   SESSION_SECRET=$(openssl rand -hex 32)
-  VAPID=$(cd "$APP_DIR" && sudo -u "$DEPLOY_USER" npx --yes web-push@3 generate-vapid-keys --json)
+  VAPID=$(sudo -u "$DEPLOY_USER" -H bash -c 'cd ~ && npx --yes web-push@3 generate-vapid-keys --json')
   VAPID_PUBLIC=$(echo "$VAPID" | sed -E 's/.*"publicKey":"([^"]+)".*/\1/')
   VAPID_PRIVATE=$(echo "$VAPID" | sed -E 's/.*"privateKey":"([^"]+)".*/\1/')
   sudo -u "$DEPLOY_USER" tee "$APP_DIR/.env" >/dev/null <<ENV
@@ -72,7 +77,7 @@ sudo mkdir -p "$WEB_ROOT" && sudo chown "$DEPLOY_USER:$DEPLOY_USER" "$WEB_ROOT"
 sudo -u "$DEPLOY_USER" bash -lc "cd $APP_DIR && mkdir -p logs data && bash deploy/deploy.sh --no-pull"
 
 say "[6/8] Suwayomi + FlareSolverr"
-(cd "$APP_DIR/deploy" && sudo docker compose up -d)
+sudo docker compose --project-directory "$APP_DIR/deploy" -f "$APP_DIR/deploy/docker-compose.yml" up -d
 sudo -u "$DEPLOY_USER" bash "$APP_DIR/deploy/bootstrap-extensions.sh"
 
 say "[7/8] PM2"
@@ -80,7 +85,7 @@ sudo -u "$DEPLOY_USER" bash -lc "cd $APP_DIR && (pm2 describe hanyo-api >/dev/nu
 
 say "[8/8] Caddy ($DOMAIN)"
 sudo mkdir -p /etc/caddy/sites-enabled
-sed "s/hanyo.yoqze.com/$DOMAIN/" "$APP_DIR/deploy/hanyo.caddy" | sudo tee /etc/caddy/sites-enabled/hanyo.caddy.new >/dev/null
+sudo sed "s/hanyo.yoqze.com/$DOMAIN/" "$APP_DIR/deploy/hanyo.caddy" | sudo tee /etc/caddy/sites-enabled/hanyo.caddy.new >/dev/null
 # Validate on a copy first: the live Caddyfile (with the yoqze auth hashes) only changes if valid.
 CANDIDATE=$(mktemp)
 sudo cp /etc/caddy/Caddyfile "$CANDIDATE"
