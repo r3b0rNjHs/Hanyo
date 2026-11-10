@@ -184,6 +184,12 @@ export function createApp(d: AppDeps): Hono {
 
   app.get("/library", (c) => c.json(d.library.listLibrary()));
 
+  // Search the whole library on every source (runs in the background; can take minutes).
+  app.post("/library/relink", (c) => {
+    void d.updates.relinkLibrary(true).catch((e) => log(`relink failed: ${e}`));
+    return c.json({ started: true, series: d.library.inLibraryIds().length });
+  });
+
   // ── Reading ──────────────────────────────────────────────────────────
   app.get("/chapters/:id/pages", async (c) => {
     try {
