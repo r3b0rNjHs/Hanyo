@@ -76,6 +76,11 @@ const MIGRATIONS: string[] = [
     created_at    INTEGER NOT NULL
   );
   `,
+  // v2: one reading language per series; each source link knows its language.
+  `
+  ALTER TABLE series ADD COLUMN lang TEXT NOT NULL DEFAULT 'en';
+  ALTER TABLE series_sources ADD COLUMN lang TEXT NOT NULL DEFAULT 'en';
+  `,
 ];
 
 export function openDb(dataDir: string): DB {

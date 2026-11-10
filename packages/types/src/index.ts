@@ -25,6 +25,8 @@ export interface SourceInfo {
 export interface SearchHit {
   sourceKey: string;
   sourceName: string;
+  /** Normalized language of the source ("en", "es"). */
+  lang: string;
   externalId: string;
   title: string;
   /** Other names the source knows (MangaDex gives many); used to merge the same series across sources. */
@@ -58,6 +60,8 @@ export interface SeriesSourceLink {
   id: number;
   sourceKey: string;
   sourceName: string;
+  /** Normalized language of the source ("en", "es"). */
+  lang: string;
   externalId: string;
   url: string | null;
   chapterCount: number;
@@ -81,6 +85,10 @@ export interface SeriesSummary {
 }
 
 export interface SeriesDetail extends SeriesSummary {
+  /** Language the series is read in; only sources in this language feed the chapter list. */
+  lang: string;
+  /** Languages available among the linked sources (to offer a switch). */
+  availableLangs: string[];
   description: string | null;
   authors: string[];
   genres: string[];

@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { Signer } from "./lib/signing.js";
 import type { AniListTitles } from "./services/anilist.js";
 import type { ProviderRegistry } from "./providers/registry.js";
-import type { LibraryService } from "./services/library.js";
+import { normLang, type LibraryService } from "./services/library.js";
 import { SourceUnavailableError, type PageService } from "./services/pages.js";
 import type { PushService } from "./services/push.js";
 import type { UpdateService } from "./services/updates.js";
@@ -100,6 +100,7 @@ export function createApp(d: AppDeps): Hono {
         hits: hits.map((h) => ({
           sourceKey: key,
           sourceName: source.name,
+          lang: normLang(source.lang),
           externalId: h.externalId,
           title: h.title,
           ...(h.altTitles?.length ? { altTitles: h.altTitles } : {}),
@@ -139,6 +140,13 @@ export function createApp(d: AppDeps): Hono {
     const id = intParam(c, "id");
     const res = await d.library.refresh(id);
     return c.json({ ...res, detail: d.library.detailFromDb(id) });
+  });
+
+  app.post("/series/:id/lang", async (c) => {
+    const id = intParam(c, "id");
+    const { lang } = z.object({ lang: z.string().min(2).max(8) }).parse(await c.req.json());
+    d.library.setLang(id, normLang(lang));
+    return c.json(d.library.detailFromDb(id));
   });
 
   app.post("/series/:id/autolink", async (c) => {

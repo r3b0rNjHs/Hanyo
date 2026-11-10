@@ -23,6 +23,13 @@ interface SeriesRow {
   added_at: number | null;
   last_checked_at: number | null;
   updated_at: number;
+  lang: string;
+}
+
+/** "es-419" → "es"; multi-language ("all") sources are read as English. */
+export function normLang(lang: string | undefined): string {
+  if (!lang || lang === "all") return "en";
+  return lang.split("-")[0]!.toLowerCase();
 }
 
 interface SourceRow {
@@ -34,6 +41,7 @@ interface SourceRow {
   url: string | null;
   priority: number;
   last_fetched_at: number | null;
+  lang: string;
 }
 
 interface ChapterRow {
@@ -77,16 +85,17 @@ export class LibraryService {
 
     const { provider, sourceId } = this.registry.resolve(sourceKey);
     const raw = await provider.getSeries(sourceId, externalId);
-    const sources = await this.registry.listSources();
-    const sourceName = sources.find((s) => s.key === sourceKey)?.name ?? sourceKey;
+    const info = (await this.registry.listSources()).find((s) => s.key === sourceKey);
+    const sourceName = info?.name ?? sourceKey;
+    const lang = normLang(info?.lang);
 
     return this.db.transaction(() => {
       const now = Date.now();
       const seriesId = Number(
         this.db
           .prepare(
-            `INSERT INTO series (title, cover_url, description, authors, genres, status, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO series (title, cover_url, description, authors, genres, status, updated_at, lang)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           )
           .run(
             raw.title,
@@ -96,9 +105,10 @@ export class LibraryService {
             JSON.stringify(raw.genres),
             raw.status,
             now,
+            lang,
           ).lastInsertRowid,
       );
-      const linkId = this.insertLink(seriesId, sourceKey, sourceName, raw, sourceKey === "mangadex" ? 50 : 100);
+      const linkId = this.insertLink(seriesId, sourceKey, sourceName, lang, raw, sourceKey === "mangadex" ? 50 : 100);
       this.upsertChapters(linkId, raw);
       return seriesId;
     })();
@@ -115,12 +125,22 @@ export class LibraryService {
     }
     const { provider, sourceId } = this.registry.resolve(sourceKey);
     const raw = await provider.getSeries(sourceId, externalId);
-    const sourceName = (await this.registry.listSources()).find((s) => s.key === sourceKey)?.name ?? sourceKey;
+    const info = (await this.registry.listSources()).find((s) => s.key === sourceKey);
+    const sourceName = info?.name ?? sourceKey;
     this.db.transaction(() => {
-      const linkId = this.insertLink(seriesId, sourceKey, sourceName, raw, 100);
+      const linkId = this.insertLink(seriesId, sourceKey, sourceName, normLang(info?.lang), raw, 100);
       this.upsertChapters(linkId, raw);
       this.db.prepare("UPDATE series SET updated_at = ? WHERE id = ?").run(Date.now(), seriesId);
     })();
+  }
+
+  /** Switch the language a series is read in. Progress is per chapter number, so it carries over. */
+  setLang(seriesId: number, lang: string): void {
+    const has = this.db
+      .prepare<[number, string], { n: number }>("SELECT COUNT(*) AS n FROM series_sources WHERE series_id = ? AND lang = ?")
+      .get(seriesId, lang)!.n;
+    if (!has) throw new Error(`No hay fuentes en ese idioma (${lang})`);
+    this.db.prepare("UPDATE series SET lang = ?, updated_at = ? WHERE id = ?").run(lang, Date.now(), seriesId);
   }
 
   unlinkSource(seriesId: number, linkId: number): void {
@@ -216,6 +236,7 @@ export class LibraryService {
         id: l.id,
         sourceKey: l.source_key,
         sourceName: l.source_name,
+        lang: l.lang,
         externalId: l.external_id,
         url: l.url,
         chapterCount: stats.n,
@@ -225,6 +246,8 @@ export class LibraryService {
     });
     return {
       ...this.summary(row, chapters),
+      lang: row.lang,
+      availableLangs: [...new Set(links.map((l) => l.lang))].sort(),
       description: row.description,
       authors: JSON.parse(row.authors) as string[],
       genres: JSON.parse(row.genres) as string[],
@@ -244,7 +267,7 @@ export class LibraryService {
       .prepare<[number], ChapterRow & { source_key: string; source_name: string; priority: number }>(
         `SELECT c.*, s.source_key, s.source_name, s.priority
          FROM chapters c JOIN series_sources s ON s.id = c.series_source_id
-         WHERE s.series_id = ?`,
+         WHERE s.series_id = ? AND s.lang = (SELECT lang FROM series WHERE id = s.series_id)`,
       )
       .all(seriesId);
     const read = new Set(
@@ -338,6 +361,7 @@ export class LibraryService {
       .prepare<[number, number, number], { id: number; source_name: string }>(
         `SELECT c.id, s.source_name FROM chapters c JOIN series_sources s ON s.id = c.series_source_id
          WHERE s.series_id = ? AND c.number = ? AND c.id != ?
+           AND s.lang = (SELECT lang FROM series WHERE id = s.series_id)
          ORDER BY s.priority, c.published_at DESC`,
       )
       .all(ctx.link.series_id, ctx.chapter.number, chapterId);
@@ -429,14 +453,14 @@ export class LibraryService {
     };
   }
 
-  private insertLink(seriesId: number, sourceKey: string, sourceName: string, raw: RawSeries, priority: number): number {
+  private insertLink(seriesId: number, sourceKey: string, sourceName: string, lang: string, raw: RawSeries, priority: number): number {
     return Number(
       this.db
         .prepare(
-          `INSERT INTO series_sources (series_id, source_key, source_name, external_id, url, priority, last_fetched_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO series_sources (series_id, source_key, source_name, external_id, url, priority, last_fetched_at, lang)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .run(seriesId, sourceKey, sourceName, raw.externalId, raw.url, priority, Date.now()).lastInsertRowid,
+        .run(seriesId, sourceKey, sourceName, raw.externalId, raw.url, priority, Date.now(), lang).lastInsertRowid,
     );
   }
 
@@ -472,7 +496,8 @@ export class LibraryService {
     return this.db
       .prepare<[number], { number: number }>(
         `SELECT DISTINCT c.number FROM chapters c JOIN series_sources s ON s.id = c.series_source_id
-         WHERE s.series_id = ? AND c.number IS NOT NULL`,
+         WHERE s.series_id = ? AND c.number IS NOT NULL
+           AND s.lang = (SELECT lang FROM series WHERE id = s.series_id)`,
       )
       .all(seriesId)
       .map((r) => r.number);
