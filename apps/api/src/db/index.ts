@@ -112,6 +112,19 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE series ADD COLUMN notify INTEGER NOT NULL DEFAULT 1;
   `,
+  // v9: daily source health checks (to warn when a source breaks).
+  `
+  CREATE TABLE source_health (
+    source_key TEXT PRIMARY KEY,
+    name       TEXT NOT NULL,
+    lang       TEXT NOT NULL,
+    ok         INTEGER NOT NULL,
+    error      TEXT,
+    checked_at INTEGER NOT NULL,
+    failures   INTEGER NOT NULL DEFAULT 0,
+    alerted    INTEGER NOT NULL DEFAULT 0
+  );
+  `,
 ];
 
 export function openDb(dataDir: string): DB {
