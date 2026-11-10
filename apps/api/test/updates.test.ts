@@ -26,6 +26,9 @@ class Fake implements Provider {
   async getSeries(_s: string, id: string) {
     return structuredClone(this.series[id]!);
   }
+  async browse() {
+    return { hits: [], hasNextPage: false };
+  }
   async getPageUrls() {
     return [];
   }

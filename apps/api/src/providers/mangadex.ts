@@ -78,6 +78,22 @@ export class MangaDexProvider implements Provider {
     }));
   }
 
+  async browse(_sourceId: string, kind: "popular" | "latest", page: number) {
+    const limit = 30;
+    const offset = (page - 1) * limit;
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    params.append("includes[]", "cover_art");
+    params.append("availableTranslatedLanguage[]", LANG);
+    params.append(kind === "popular" ? "order[followedCount]" : "order[latestUploadedChapter]", "desc");
+    for (const r of CONTENT_RATINGS) params.append("contentRating[]", r);
+    const res = await this.get<{ data: MdManga[]; total: number }>(`/manga?${params}`);
+    return {
+      hits: res.data.map((m) => ({ externalId: m.id, title: pickTitle(m), altTitles: altTitles(m), coverUrl: coverUrl(m) })),
+      // MangaDex refuses offsets past 10 000.
+      hasNextPage: offset + limit < Math.min(res.total, 10_000),
+    };
+  }
+
   async getSeries(_sourceId: string, externalId: string): Promise<RawSeries> {
     const params = new URLSearchParams();
     for (const inc of ["cover_art", "author", "artist"]) params.append("includes[]", inc);

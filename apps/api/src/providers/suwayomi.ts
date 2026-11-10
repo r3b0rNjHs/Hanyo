@@ -69,6 +69,28 @@ export class SuwayomiProvider implements Provider {
     }));
   }
 
+  async browse(sourceId: string, kind: "popular" | "latest", page: number) {
+    const data = await this.gql<{
+      fetchSourceManga: { hasNextPage: boolean; mangas: Array<{ id: number; title: string; thumbnailUrl: string | null }> };
+    }>(
+      `mutation($source: LongString!, $type: FetchSourceMangaType!, $page: Int!) {
+        fetchSourceManga(input: { source: $source, type: $type, page: $page }) {
+          hasNextPage
+          mangas { id title thumbnailUrl }
+        }
+      }`,
+      { source: sourceId, type: kind === "popular" ? "POPULAR" : "LATEST", page },
+    );
+    return {
+      hits: data.fetchSourceManga.mangas.map((m) => ({
+        externalId: String(m.id),
+        title: m.title,
+        coverUrl: m.thumbnailUrl ? this.abs(m.thumbnailUrl) : null,
+      })),
+      hasNextPage: data.fetchSourceManga.hasNextPage,
+    };
+  }
+
   async getSeries(_sourceId: string, externalId: string): Promise<RawSeries> {
     const data = await this.gql<{
       fetchMangaAndChapters: {

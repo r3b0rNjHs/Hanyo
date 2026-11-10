@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import type { ApiError, OpenSeriesRequest, ProgressUpdate, SearchMetaResponse, SearchResponse } from "@hanyo/types";
+import type { ApiError, ExploreResponse, OpenSeriesRequest, ProgressUpdate, SearchMetaResponse, SearchResponse } from "@hanyo/types";
 import { Hono, type Context } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
@@ -110,6 +110,43 @@ export function createApp(d: AppDeps): Hono {
     } catch (e) {
       // A broken source must not break the whole search: report it per source.
       return c.json<SearchResponse>({ source, hits: [], error: (e as Error).message });
+    }
+  });
+
+  // Popular / latest per source. Cached a few minutes: the Explore tab is browsed page by page
+  // and going back and forth shouldn't hit the source again.
+  const exploreCache = new Map<string, { at: number; body: ExploreResponse }>();
+  app.get("/explore", async (c) => {
+    const { source: key, kind, page } = z
+      .object({ source: z.string(), kind: z.enum(["popular", "latest"]), page: z.coerce.number().int().min(1).max(200).default(1) })
+      .parse(c.req.query());
+    const source = (await d.registry.listSources()).find((s) => s.key === key);
+    if (!source) return c.json<ApiError>({ error: "Unknown source" }, 404);
+    const cacheKey = `${key}|${kind}|${page}`;
+    const hit = exploreCache.get(cacheKey);
+    if (hit && Date.now() - hit.at < 10 * 60_000) return c.json(hit.body);
+    try {
+      const { provider, sourceId } = d.registry.resolve(key);
+      const res = await provider.browse(sourceId, kind, page);
+      const body: ExploreResponse = {
+        source,
+        kind,
+        page,
+        hasNextPage: res.hasNextPage,
+        hits: res.hits.map((h) => ({
+          sourceKey: key,
+          sourceName: source.name,
+          lang: normLang(source.lang),
+          externalId: h.externalId,
+          title: h.title,
+          coverUrl: wrapImage(d.signer, key, h.coverUrl),
+        })),
+      };
+      if (exploreCache.size > 300) exploreCache.clear();
+      exploreCache.set(cacheKey, { at: Date.now(), body });
+      return c.json(body);
+    } catch (e) {
+      return c.json<ApiError>({ error: `${source.name}: ${(e as Error).message.split("\n")[0]}` }, 502);
     }
   });
 

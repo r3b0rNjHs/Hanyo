@@ -56,6 +56,17 @@ export interface SearchResponse {
   error?: string;
 }
 
+export type ExploreKind = "popular" | "latest";
+
+/** One page of a source's own catalogue (popular / recently updated). */
+export interface ExploreResponse {
+  source: SourceInfo;
+  kind: ExploreKind;
+  page: number;
+  hits: SearchHit[];
+  hasNextPage: boolean;
+}
+
 export interface SeriesSourceLink {
   id: number;
   sourceKey: string;

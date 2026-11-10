@@ -29,6 +29,9 @@ class Source implements Provider {
   async listSources() {
     return [this.info];
   }
+  async browse() {
+    return { hits: [], hasNextPage: false };
+  }
   async search() {
     return [];
   }
