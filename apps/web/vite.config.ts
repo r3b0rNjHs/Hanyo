@@ -7,4 +7,6 @@ export default defineConfig({
   server: {
     proxy: { "/api": "http://127.0.0.1:3101" },
   },
+  // Unit tests only; e2e/ is run by Playwright.
+  test: { include: ["src/**/*.test.ts"] },
 });

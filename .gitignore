@@ -10,3 +10,6 @@ logs/
 coverage/
 .DS_Store
 __pycache__/
+.e2e-data/
+test-results/
+playwright-report/
