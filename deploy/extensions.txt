@@ -1,6 +1,28 @@
-# Mihon extensions installed into Suwayomi (package names from the Keiyoushi repo).
-# One per line. Run deploy/bootstrap-extensions.sh after editing.
-eu.kanade.tachiyomi.extension.en.weebcentral
-eu.kanade.tachiyomi.extension.en.comix
+# Mihon extensions kept installed in Suwayomi (Keiyoushi package names), one per line.
+# deploy/bootstrap-extensions.sh installs these, updates them and UNINSTALLS anything else.
+# Chosen from deploy/test-sources.py results on the VPS (2026-11-10): every source here
+# searched, listed chapters and downloaded an image from the server. Weeb Central and Comix
+# are left out: they block the server.
+
+# English: quality scanlations
 eu.kanade.tachiyomi.extension.en.asurascans
 eu.kanade.tachiyomi.extension.en.flamecomics
+# English: broad catalogues (Eleceed: 425-476 chapters)
+eu.kanade.tachiyomi.extension.en.mangakakalot
+eu.kanade.tachiyomi.extension.en.mangahubio
+eu.kanade.tachiyomi.extension.en.kunmangaonline
+eu.kanade.tachiyomi.extension.en.infernalvoidscans
+eu.kanade.tachiyomi.extension.en.mangakatana
+eu.kanade.tachiyomi.extension.en.manhwaz
+# English: adult manhwa
+eu.kanade.tachiyomi.extension.en.toonily
+eu.kanade.tachiyomi.extension.all.manhwa18cc
+eu.kanade.tachiyomi.extension.en.webtoonxyz
+# Spanish
+eu.kanade.tachiyomi.extension.es.zonatmoto
+eu.kanade.tachiyomi.extension.es.lectortmounoriginal
+eu.kanade.tachiyomi.extension.es.leercapitulo
+eu.kanade.tachiyomi.extension.es.lectormangalat
+eu.kanade.tachiyomi.extension.es.submanhwa
+eu.kanade.tachiyomi.extension.es.olympusscanlation
+eu.kanade.tachiyomi.extension.es.mangatv

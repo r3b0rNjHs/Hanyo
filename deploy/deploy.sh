@@ -22,6 +22,6 @@ fi
 
 # Keep extensions current (no-op when Suwayomi isn't up yet).
 if curl -sf -o /dev/null -X POST http://127.0.0.1:4567/api/graphql -H 'Content-Type: application/json' -d '{"query":"{aboutServer{version}}"}'; then
-  timeout 300 bash deploy/bootstrap-extensions.sh >/dev/null 2>&1 || echo "warning: extension bootstrap failed"
+  timeout 600 bash deploy/bootstrap-extensions.sh || echo "warning: extension bootstrap failed"
 fi
 echo "Hanyo deployed: $(git rev-parse --short HEAD)"
