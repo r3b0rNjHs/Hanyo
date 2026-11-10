@@ -19,6 +19,8 @@ export interface SourceInfo {
   name: string;
   lang: string;
   iconUrl: string | null;
+  /** Whether the source has a "latest updates" listing (Explore → Novedades). */
+  supportsLatest?: boolean;
 }
 
 /** A single search hit on one source. */
