@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import sharp from "sharp";
 import type { ChapterPages } from "@hanyo/types";
 import type { ProviderRegistry } from "../providers/registry.js";
 import { compressPage, JobQueue } from "./compress.js";
@@ -98,6 +99,7 @@ export class PageService {
       resumePage: basics.resume?.chapterId === chapterId ? basics.resume.page : null,
       resumeOffset: basics.resume?.chapterId === chapterId ? basics.resume.offset : null,
       pages: direct ? urls : urls.map((_, i) => `/api/chapters/${chapterId}/pages/${i}`),
+      ...(direct ? {} : { ratios: this.library.pageRatios(chapterId, urls.length) }),
       direct,
       prevChapterId: ctx.prevId,
       nextChapterId: ctx.nextId,
@@ -119,7 +121,11 @@ export class PageService {
   ): Promise<{ bytes: Buffer; contentType: string } | null> {
     const compactKey = `compact/${chapterId}/${index}`;
     const done = this.cache.read(compactKey);
-    if (done) return done;
+    if (done) {
+      // Pages cached before shapes were recorded learn theirs the first time they're served.
+      if (!this.measured.has(compactKey)) void this.learnRatio(chapterId, index, done.bytes);
+      return done;
+    }
 
     let original: { bytes: Buffer; contentType: string };
     try {
@@ -173,11 +179,26 @@ export class PageService {
           img = await provider.fetchImage(fresh);
         }
         this.cache.write(key, img.bytes);
+        void this.learnRatio(chapterId, index, img.bytes);
         return img;
       })().finally(() => this.inflight.delete(key));
       this.inflight.set(key, p);
     }
     return p;
+  }
+
+  /** Remember the page's shape (header parse only, no decode) for exact reader placeholders. */
+  private readonly measured = new Set<string>();
+
+  private async learnRatio(chapterId: number, index: number, bytes: Buffer): Promise<void> {
+    if (this.measured.size > 50_000) this.measured.clear();
+    this.measured.add(`compact/${chapterId}/${index}`);
+    try {
+      const { width, height } = await sharp(bytes, { limitInputPixels: false }).metadata();
+      if (width && height) this.library.setPageRatio(chapterId, index, height / width);
+    } catch {
+      // Not critical: the reader falls back to measuring the image.
+    }
   }
 
   /** Download every page of a chapter into the server cache (used for new-chapter prefetch). */

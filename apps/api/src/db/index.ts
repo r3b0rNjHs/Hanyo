@@ -99,6 +99,15 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE resume_points ADD COLUMN page_offset REAL NOT NULL DEFAULT 0;
   `,
+  // v7: page shapes (height / width), learned when the server first fetches a page.
+  `
+  CREATE TABLE page_sizes (
+    chapter_id INTEGER NOT NULL REFERENCES chapters(id) ON DELETE CASCADE,
+    idx        INTEGER NOT NULL,
+    ratio      REAL NOT NULL,
+    PRIMARY KEY (chapter_id, idx)
+  );
+  `,
 ];
 
 export function openDb(dataDir: string): DB {

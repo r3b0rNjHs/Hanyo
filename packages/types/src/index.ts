@@ -167,6 +167,8 @@ export interface ChapterPages {
    * the server, so the phone loads them itself (no re-encoding, opaque when downloaded).
    */
   pages: string[];
+  /** Height/width of each page when the server has seen it, so the reader can reserve the exact space. */
+  ratios?: (number | null)[];
   direct: boolean;
   prevChapterId: number | null;
   nextChapterId: number | null;
