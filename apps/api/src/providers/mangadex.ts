@@ -5,7 +5,8 @@ import type { Provider, RawChapter, RawHit, RawSeries } from "./types.js";
 
 const API = "https://api.mangadex.org";
 const UPLOADS = "https://uploads.mangadex.org";
-const CONTENT_RATINGS = ["safe", "suggestive", "erotica"];
+// Every rating, adult included (single adult user; the owner opted in).
+const CONTENT_RATINGS = ["safe", "suggestive", "erotica", "pornographic"];
 const LANG = "en";
 
 interface MdRelationship {
