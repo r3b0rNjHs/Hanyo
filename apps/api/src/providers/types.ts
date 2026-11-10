@@ -3,6 +3,7 @@ import type { SeriesStatus, SourceInfo } from "@hanyo/types";
 export interface RawHit {
   externalId: string;
   title: string;
+  altTitles?: string[];
   /** Absolute upstream URL. The API wraps it into a signed same-origin proxy URL. */
   coverUrl: string | null;
 }

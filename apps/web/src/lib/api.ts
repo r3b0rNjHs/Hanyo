@@ -1,6 +1,7 @@
 import type {
   ChapterPages,
   ProgressUpdate,
+  SearchMetaResponse,
   SearchResponse,
   SeriesDetail,
   SeriesSummary,
@@ -56,6 +57,9 @@ export const api = {
   sources: () => request<SourceInfo[]>("/sources"),
   search: (source: string, q: string, signal?: AbortSignal) =>
     request<SearchResponse>(`/search?source=${encodeURIComponent(source)}&q=${encodeURIComponent(q)}`, { signal }),
+
+  searchMeta: (q: string, signal?: AbortSignal) =>
+    request<SearchMetaResponse>(`/search/meta?q=${encodeURIComponent(q)}`, { signal }),
 
   openSeries: (sourceKey: string, externalId: string) => post<{ id: number }>("/series/open", { sourceKey, externalId }),
   series: (id: number) => request<SeriesDetail>(`/series/${id}`),

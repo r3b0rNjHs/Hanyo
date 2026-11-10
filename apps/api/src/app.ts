@@ -1,9 +1,10 @@
 import crypto from "node:crypto";
-import type { ApiError, OpenSeriesRequest, ProgressUpdate, SearchResponse } from "@hanyo/types";
+import type { ApiError, OpenSeriesRequest, ProgressUpdate, SearchMetaResponse, SearchResponse } from "@hanyo/types";
 import { Hono, type Context } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
 import type { Signer } from "./lib/signing.js";
+import type { AniListTitles } from "./services/anilist.js";
 import type { ProviderRegistry } from "./providers/registry.js";
 import type { LibraryService } from "./services/library.js";
 import type { PageService } from "./services/pages.js";
@@ -19,6 +20,7 @@ export interface AppDeps {
   pages: PageService;
   updates: UpdateService;
   push: PushService;
+  titles: AniListTitles;
   log?: (msg: string) => void;
 }
 
@@ -76,6 +78,13 @@ export function createApp(d: AppDeps): Hono {
   // ── Sources & search ─────────────────────────────────────────────────
   app.get("/sources", async (c) => c.json(await d.registry.listSources()));
 
+  // Alternative names + popularity, so the web app can merge and rank results across sources.
+  app.get("/search/meta", async (c) => {
+    const q = c.req.query("q")?.trim();
+    if (!q) return c.json<ApiError>({ error: "q is required" }, 400);
+    return c.json<SearchMetaResponse>({ clusters: await d.titles.lookup(q) });
+  });
+
   app.get("/search", async (c) => {
     const q = c.req.query("q")?.trim();
     const key = c.req.query("source");
@@ -93,6 +102,7 @@ export function createApp(d: AppDeps): Hono {
           sourceName: source.name,
           externalId: h.externalId,
           title: h.title,
+          ...(h.altTitles?.length ? { altTitles: h.altTitles } : {}),
           coverUrl: wrapImage(d.signer, key, h.coverUrl),
         })),
       });

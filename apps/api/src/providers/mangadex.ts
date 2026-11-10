@@ -45,7 +45,7 @@ export class MangaDexProvider implements Provider {
   private readonly api = new RateLimiter(4, 1000);
   private readonly atHome = new RateLimiter(35, 60_000);
   /** uploads.mangadex.org returns 403/429 on bursts (e.g. a grid of covers): pace and retry. */
-  private readonly uploads = new RateLimiter(5, 1000);
+  private readonly uploads = new RateLimiter(3, 1000);
 
   constructor(private readonly userAgent: string) {}
 
@@ -72,6 +72,7 @@ export class MangaDexProvider implements Provider {
     return res.data.map((m) => ({
       externalId: m.id,
       title: pickTitle(m),
+      altTitles: altTitles(m),
       coverUrl: coverUrl(m),
     }));
   }
@@ -167,8 +168,9 @@ export class MangaDexProvider implements Provider {
         return await (isUploads ? this.uploads.schedule(doFetch) : doFetch());
       } catch (e) {
         const status = (e as { status?: number }).status;
-        if (attempt >= 2 || (status !== 403 && status !== 429 && status !== undefined && status < 500)) throw e;
-        await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+        if (attempt >= 3 || (status !== 403 && status !== 429 && status !== undefined && status < 500)) throw e;
+        // Burst limits clear after a few seconds: back off 1s, 2s, 4s.
+        await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
       }
     }
   }
@@ -200,6 +202,12 @@ function pickTitle(m: MdManga): string {
   const t = m.attributes.title;
   const alt = m.attributes.altTitles.find((a) => a.en)?.en;
   return t.en ?? alt ?? Object.values(t)[0] ?? "Untitled";
+}
+
+/** Latin-script names only (English, romanized): the ones other sources use. */
+function altTitles(m: MdManga): string[] {
+  const all = [...Object.values(m.attributes.title), ...m.attributes.altTitles.flatMap((a) => Object.values(a))];
+  return [...new Set(all.filter((t) => /^[\p{Script=Latin}\p{N}\p{P}\p{S}\s]+$/u.test(t)))].slice(0, 20);
 }
 
 function coverUrl(m: MdManga, size: 256 | 512 = 256): string | null {

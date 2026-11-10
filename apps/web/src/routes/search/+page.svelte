@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { SearchHit, SourceInfo } from "@hanyo/types";
+  import type { SearchHit, SourceInfo, TitleCluster } from "@hanyo/types";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
@@ -7,18 +7,17 @@
   import Cover from "$lib/components/Cover.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import Spinner from "$lib/components/Spinner.svelte";
-  import { normalizeTitle } from "$lib/text";
-
-  interface Group {
-    key: string;
-    title: string;
-    cover: string | null;
-    hits: SearchHit[];
-  }
+  import { groupAndRank, PRIMARY_RESULTS, type ResultGroup } from "$lib/search-rank";
 
   let sources = $state<SourceInfo[]>([]);
   let query = $state(page.url.searchParams.get("q") ?? "");
-  let groups = $state<Group[]>([]);
+  let hits = $state<SearchHit[]>([]);
+  let clusters = $state<TitleCluster[]>([]);
+  let searchedQuery = $state("");
+  let showAll = $state(false);
+  // One card per series (merged across sources and alternative names), best match first.
+  const groups = $derived(groupAndRank(searchedQuery, hits, clusters));
+  const visible = $derived(showAll ? groups : groups.slice(0, PRIMARY_RESULTS));
   let pending = $state<Set<string>>(new Set());
   let failed = $state<Array<{ name: string; error: string }>>([]);
   let searched = $state(false);
@@ -41,9 +40,19 @@
     controller?.abort();
     controller = new AbortController();
     const signal = controller.signal;
-    groups = [];
+    hits = [];
+    clusters = [];
+    searchedQuery = q;
+    showAll = false;
     failed = [];
     searched = true;
+    // Alternative names + popularity (AniList); optional, results work without it.
+    void api.searchMeta(q, signal).then(
+      (m) => {
+        if (!signal.aborted) clusters = m.clusters;
+      },
+      () => undefined,
+    );
     pending = new Set(sources.map((s) => s.key));
 
     // Every source searches in parallel; results stream into the list as they arrive.
@@ -53,7 +62,7 @@
           const res = await api.search(s.key, q, signal);
           if (signal.aborted) return;
           if (res.error) failed = [...failed, { name: s.name, error: res.error }];
-          merge(res.hits);
+          hits = [...hits, ...res.hits];
         } catch (err) {
           if (!signal.aborted) failed = [...failed, { name: s.name, error: (err as Error).message }];
         } finally {
@@ -67,23 +76,7 @@
     );
   }
 
-  function merge(hits: SearchHit[]) {
-    const next = [...groups];
-    for (const h of hits) {
-      const key = normalizeTitle(h.title);
-      const g = next.find((x) => x.key === key);
-      if (g) {
-        if (!g.hits.some((x) => x.sourceKey === h.sourceKey)) g.hits = [...g.hits, h];
-        g.cover ??= h.coverUrl;
-      } else {
-        next.push({ key, title: h.title, cover: h.coverUrl, hits: [h] });
-      }
-    }
-    // Series found on more sources first (usually the "real" match), keep arrival order otherwise.
-    groups = next.sort((a, b) => b.hits.length - a.hits.length);
-  }
-
-  async function open(g: Group) {
+  async function open(g: ResultGroup) {
     opening = g.key;
     try {
       const [first, ...others] = [...g.hits].sort((a, b) => (a.sourceKey === "mangadex" ? -1 : b.sourceKey === "mangadex" ? 1 : 0));
@@ -135,12 +128,13 @@
 {/if}
 
 <ul class="divide-y divide-white/5">
-  {#each groups as g (g.key)}
+  {#each visible as g (g.key)}
     <li>
       <button class="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-white/5" onclick={() => open(g)}>
         <Cover src={g.cover} alt={g.title} class="w-16 shrink-0 rounded-lg" />
         <div class="min-w-0 flex-1">
           <p class="line-clamp-2 font-semibold leading-snug">{g.title}</p>
+          {#if g.aka.length}<p class="mt-0.5 truncate text-xs text-ink-400">También: {g.aka.join(" · ")}</p>{/if}
           <div class="mt-1.5 flex flex-wrap gap-1">
             {#each g.hits as h (h.sourceKey)}
               <span class="rounded-md bg-ink-800 px-1.5 py-0.5 text-[11px] font-medium text-ink-200">{h.sourceName}</span>
@@ -152,6 +146,12 @@
     </li>
   {/each}
 </ul>
+
+{#if groups.length > visible.length}
+  <button class="mx-4 mt-2 w-[calc(100%-2rem)] rounded-xl bg-ink-900 py-3 text-sm font-medium text-ink-200" onclick={() => (showAll = true)}>
+    Mostrar {groups.length - visible.length} resultados menos relevantes
+  </button>
+{/if}
 
 {#if searched && pending.size === 0 && groups.length === 0}
   <p class="px-6 py-16 text-center text-ink-400">Sin resultados para «{query}».</p>
