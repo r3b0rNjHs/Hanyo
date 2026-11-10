@@ -161,6 +161,18 @@ describe("LibraryService", () => {
     expect(library.detailFromDb(id)!.shelf).toBe("completed");
   });
 
+  it("lists the source entries of library series", async () => {
+    const { library } = setup();
+    const id = await library.open("mangadex", "md-1");
+    await library.linkSource(id, "suwayomi:42", "7");
+    expect(library.libraryLinks()).toEqual([]);
+    library.setInLibrary(id, true);
+    expect(library.libraryLinks().map((l) => `${l.sourceKey}|${l.externalId}|${l.seriesId === id}`).sort()).toEqual([
+      "mangadex|md-1|true",
+      "suwayomi:42|7|true",
+    ]);
+  });
+
   it("stores the automatic download flag per series", async () => {
     const { library } = setup();
     const id = await library.open("mangadex", "md-1");

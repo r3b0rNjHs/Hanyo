@@ -247,6 +247,17 @@ export class LibraryService {
     return rows.map((r) => this.summary(r));
   }
 
+  /** Every source entry of the library's series, so search and Explore can mark what you already have. */
+  libraryLinks(): { sourceKey: string; externalId: string; seriesId: number }[] {
+    return this.db
+      .prepare<[], { source_key: string; external_id: string; series_id: number }>(
+        `SELECT ss.source_key, ss.external_id, ss.series_id FROM series_sources ss
+         JOIN series s ON s.id = ss.series_id WHERE s.in_library = 1`,
+      )
+      .all()
+      .map((r) => ({ sourceKey: r.source_key, externalId: r.external_id, seriesId: r.series_id }));
+  }
+
   inLibraryIds(): number[] {
     return this.db
       .prepare<[], { id: number }>("SELECT id FROM series WHERE in_library = 1")
