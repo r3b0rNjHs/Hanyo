@@ -1,0 +1,23 @@
+# Hanyo — served from the yoqze VPS. Installed to /etc/caddy/sites-enabled/hanyo.caddy
+# by deploy/setup.sh and imported from the main /etc/caddy/Caddyfile.
+hanyo.yoqze.com {
+	encode zstd gzip
+
+	# Personal app: keep it out of search engines.
+	header X-Robots-Tag "noindex, nofollow"
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:3101
+	}
+
+	handle {
+		root * /var/www/hanyo
+		# The service worker and entry HTML must always be revalidated so updates land.
+		@nocache path /service-worker.js /index.html / /manifest.webmanifest
+		header @nocache Cache-Control "no-cache"
+		@immutable path /_app/immutable/*
+		header @immutable Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} /index.html
+		file_server
+	}
+}
