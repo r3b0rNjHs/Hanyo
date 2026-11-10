@@ -1,0 +1,37 @@
+# Third-party services for Hanyo. Both bind to 127.0.0.1 only: nothing here is reachable
+# from the internet. hanyo-api is their only client.
+#
+# Suwayomi runs Mihon extensions (code downloaded from the Keiyoushi repo); keeping it in a
+# container isolates that code from the rest of the VPS (yoqze platform, dashboard, ...).
+name: hanyo
+
+services:
+  suwayomi:
+    image: ghcr.io/suwayomi/suwayomi-server:stable
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4567:4567"
+    environment:
+      TZ: Europe/Madrid
+      WEB_UI_ENABLED: "false"
+      EXTENSION_STORES: '["https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json"]'
+      FLARESOLVERR_ENABLED: "true"
+      FLARESOLVERR_URL: "http://flaresolverr:8191"
+      MAX_SOURCES_IN_PARALLEL: "6"
+      # hanyo-api does its own library updates; Suwayomi's would double the traffic.
+      UPDATE_INTERVAL: "0"
+      JAVA_TOOL_OPTIONS: "-Xmx1g"
+    volumes:
+      - ./suwayomi-data:/home/suwayomi/.local/share/Tachidesk
+    depends_on:
+      - flaresolverr
+    mem_limit: 1600m
+
+  # Solves Cloudflare challenges for extensions that need it.
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Madrid
+      LOG_LEVEL: warn
+    mem_limit: 1g

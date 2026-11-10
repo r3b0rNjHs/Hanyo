@@ -1,0 +1,6 @@
+# Mihon extensions installed into Suwayomi (package names from the Keiyoushi repo).
+# One per line. Run deploy/bootstrap-extensions.sh after editing.
+eu.kanade.tachiyomi.extension.en.weebcentral
+eu.kanade.tachiyomi.extension.en.comix
+eu.kanade.tachiyomi.extension.en.asurascans
+eu.kanade.tachiyomi.extension.en.flamecomics
