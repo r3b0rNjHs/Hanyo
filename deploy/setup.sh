@@ -10,7 +10,9 @@ set -euo pipefail
 DEPLOY_USER="deploy"
 APP_DIR="/home/$DEPLOY_USER/hanyo"
 WEB_ROOT="/var/www/hanyo"
-REPO="${HANYO_REPO:-git@github.com:r3b0rNjHs/Hanyo.git}"
+# HTTPS: a public repo needs no key. If the repo goes private, use the SSH URL plus a Deploy key:
+#   HANYO_REPO=git@github.com:r3b0rNjHs/Hanyo.git bash setup.sh
+REPO="${HANYO_REPO:-https://github.com/r3b0rNjHs/Hanyo.git}"
 DOMAIN="${HANYO_DOMAIN:-hanyo.yoqze.com}"
 
 say() { printf '\n\033[1;33m==> %s\033[0m\n' "$*"; }
@@ -35,7 +37,8 @@ if [ ! -d "$APP_DIR/.git" ]; then
   if ! sudo -u "$DEPLOY_USER" git clone "$REPO" "$APP_DIR"; then
     echo
     echo "Clone failed. If the repo is private, add this key as a read-only Deploy Key in"
-    echo "GitHub → r3b0rNjHs/Hanyo → Settings → Deploy keys, then re-run this script:"
+    echo "GitHub → r3b0rNjHs/Hanyo → Settings → Deploy keys, then re-run with the SSH URL:"
+    echo "  HANYO_REPO=git@github.com:r3b0rNjHs/Hanyo.git bash setup.sh"
     sudo cat "/home/$DEPLOY_USER/.ssh/id_ed25519.pub"
     exit 1
   fi

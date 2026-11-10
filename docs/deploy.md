@@ -6,9 +6,10 @@ site file imported from `/etc/caddy/Caddyfile`.
 
 ## First install (once)
 
-1. If the repo is private, give the VPS read access: add `/home/deploy/.ssh/id_ed25519.pub` as a
-   **Deploy key** (read-only) in GitHub → r3b0rNjHs/Hanyo → Settings → Deploy keys.
-   (The setup script prints the key if the clone fails.)
+1. The script clones over HTTPS, which needs no credentials while the repo is public. If the repo is
+   made private: add `/home/deploy/.ssh/id_ed25519.pub` as a read-only **Deploy key** (GitHub →
+   r3b0rNjHs/Hanyo → Settings → Deploy keys) and run the script with
+   `HANYO_REPO=git@github.com:r3b0rNjHs/Hanyo.git`.
 2. SSH in as `ubuntu` and run:
    ```bash
    curl -fsSL https://raw.githubusercontent.com/r3b0rNjHs/Hanyo/main/deploy/setup.sh -o setup.sh && bash setup.sh
