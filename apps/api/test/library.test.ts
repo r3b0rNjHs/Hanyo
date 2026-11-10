@@ -161,6 +161,18 @@ describe("LibraryService", () => {
     expect(library.detailFromDb(id)!.shelf).toBe("completed");
   });
 
+  it("builds a feed of the latest library chapters, newest first", async () => {
+    const { library } = setup();
+    const id = await library.open("mangadex", "md-1");
+    expect(library.feed()).toEqual([]);
+    library.setShelf(id, "plan");
+    expect(library.feed()).toEqual([]);
+    library.setShelf(id, "reading");
+    const feed = library.feed(2);
+    expect(feed.map((f) => f.chapter.number)).toEqual([10, 3]);
+    expect(feed[0]!.seriesTitle).toBe("Eleceed");
+  });
+
   it("lists the source entries of library series", async () => {
     const { library } = setup();
     const id = await library.open("mangadex", "md-1");

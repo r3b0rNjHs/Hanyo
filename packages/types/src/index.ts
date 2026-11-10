@@ -180,6 +180,14 @@ export interface ChapterPages {
   nextChapterNumber: number | null;
 }
 
+/** One chapter in the "Novedades" feed (latest chapters across the library). */
+export interface FeedItem {
+  seriesId: number;
+  seriesTitle: string;
+  coverUrl: string | null;
+  chapter: ChapterSummary;
+}
+
 export interface ProgressUpdate {
   chapterId: number;
   page: number;

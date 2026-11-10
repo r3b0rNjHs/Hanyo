@@ -1,5 +1,6 @@
 import type {
   ChapterSummary,
+  FeedItem,
   ResumePoint,
   SeriesDetail,
   SeriesSourceLink,
@@ -256,6 +257,23 @@ export class LibraryService {
       )
       .all()
       .map((r) => ({ sourceKey: r.source_key, externalId: r.external_id, seriesId: r.series_id }));
+  }
+
+  /**
+   * Latest chapters of the series you follow (Leyendo / En pausa; one per chapter number, in the
+   * series' language), newest first. "Pendiente" and "Terminada" series would only add noise.
+   */
+  feed(limit = 80): FeedItem[] {
+    const items: FeedItem[] = [];
+    for (const id of this.inLibraryIds()) {
+      const row = this.row(id);
+      if (!row || (row.shelf !== "reading" && row.shelf !== "paused")) continue;
+      for (const c of this.mergedChapters(id)) {
+        if (c.publishedAt === null) continue;
+        items.push({ seriesId: id, seriesTitle: row.title, coverUrl: row.cover_url, chapter: c });
+      }
+    }
+    return items.sort((a, b) => b.chapter.publishedAt! - a.chapter.publishedAt!).slice(0, limit);
   }
 
   inLibraryIds(): number[] {

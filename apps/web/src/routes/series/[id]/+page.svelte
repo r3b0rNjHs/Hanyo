@@ -5,6 +5,7 @@
   import { api } from "$lib/api";
   import Icon from "$lib/components/Icon.svelte";
   import Spinner from "$lib/components/Spinner.svelte";
+  import SwipeRow from "$lib/components/SwipeRow.svelte";
   import { downloads } from "$lib/offline/downloads.svelte";
   import { AUTO_AHEAD, nextUnread } from "$lib/offline/auto-download";
   import { chapterLabel, formatBytes, relativeDate, SHELVES, shelfLabel, statusLabel } from "$lib/format";
@@ -100,7 +101,19 @@
     }
   }
 
-  const ordered = $derived(s ? (newestFirst ? [...s.chapters].reverse() : s.chapters) : []);
+  type ListFilter = "all" | "unread" | "downloaded";
+  let listFilter = $state<ListFilter>("all");
+  /** Long series have hundreds of chapters: render in steps instead of one huge list. */
+  const STEP = 60;
+  let shown = $state(STEP);
+  const filtered = $derived(
+    s
+      ? s.chapters.filter((c) =>
+          listFilter === "unread" ? !c.read : listFilter === "downloaded" ? downloads.records.has(c.id) : true,
+        )
+      : [],
+  );
+  const ordered = $derived(newestFirst ? [...filtered].reverse() : filtered);
   const firstUnread = $derived(s?.chapters.find((c) => !c.read && c.number !== null) ?? null);
   const readTarget = $derived(
     s?.resume ? { id: s.resume.chapterId, label: `Leer ${chapterLabel(s.resume.chapterNumber).toLowerCase()}` }
@@ -114,9 +127,10 @@
   /** Chapters released after where you left off (only once you've started), newest first. */
   const fresh = $derived(
     s && lastRead !== null
-      ? s.chapters.filter((c) => !c.read && c.number !== null && c.number > lastRead).reverse().slice(0, 3)
+      ? s.chapters.filter((c) => !c.read && c.number !== null && c.number > lastRead).reverse()
       : [],
   );
+  const freshIds = $derived(new Set(fresh.map((c) => c.id)));
   const statusDot: Record<string, string> = {
     ongoing: "bg-ok",
     completed: "bg-accent-soft",
@@ -226,7 +240,7 @@
   </div>
 {:else}
   <!-- Hero: the cover, full bleed -->
-  <div class="relative h-[300px] overflow-hidden bg-accent">
+  <div class="relative h-[230px] overflow-hidden bg-accent">
     {#if s.coverUrl}
       <img src={s.coverUrl} alt="" class="absolute inset-0 h-full w-full object-cover object-top" />
     {:else}
@@ -255,53 +269,53 @@
       </p>
     {/if}
 
-    <div class="mt-4 grid grid-cols-3 gap-2">
-      <div class="rounded-2xl bg-surface px-3 py-2.5">
-        <p class="font-display text-lg font-bold">{s.chapters.length}</p>
-        <p class="text-xs text-muted">capítulos</p>
-      </div>
-      <button class="rounded-2xl bg-surface px-3 py-2.5 text-left active:bg-raised" onclick={() => (sourcesOpen = true)} aria-label="Gestionar fuentes">
-        <p class="font-display flex items-center justify-between text-lg font-bold">{s.sources.length}<Icon name="chevronRight" size={16} class="text-faint" /></p>
-        <p class="truncate text-xs text-muted">{s.sources.length === 1 ? "fuente" : "fuentes"}</p>
-      </button>
-      <div class="rounded-2xl bg-surface px-3 py-2.5">
-        <p class="flex h-7 items-center"><span class="h-2.5 w-2.5 rounded-full {statusDot[s.status]}"></span></p>
-        <p class="truncate text-xs text-muted">{statusLabel[s.status]?.toLowerCase()}</p>
-      </div>
+    <!-- Status, size and (when there's a choice) the reading language, in one line. -->
+    <div class="mt-3 flex items-center gap-3">
+      <p class="flex min-w-0 flex-1 items-center gap-2 text-[13px] text-soft">
+        <span class="h-2 w-2 shrink-0 rounded-full {statusDot[s.status]}"></span>
+        <span class="truncate">{statusLabel[s.status]} · {s.chapters.length} capítulos</span>
+      </p>
+      {#if s.availableLangs.length > 1}
+        <div class="flex shrink-0 gap-0.5 rounded-full bg-surface p-0.5" role="radiogroup" aria-label="Idioma de lectura">
+          {#each s.availableLangs as l (l)}
+            <button
+              role="radio"
+              aria-checked={s.lang === l}
+              aria-label={langNames[l] ?? l}
+              disabled={langBusy || offline}
+              onclick={() => switchLang(l)}
+              class="h-7 rounded-full px-2.5 text-[11px] font-bold tracking-wide uppercase {s.lang === l ? 'bg-accent text-on-accent' : 'text-muted'}"
+            >{l}</button>
+          {/each}
+        </div>
+      {/if}
     </div>
 
-    {#if s.availableLangs.length > 1}
-      <div class="mt-3 grid gap-1 rounded-full bg-surface p-1" style="grid-template-columns: repeat({s.availableLangs.length}, minmax(0, 1fr))" role="radiogroup" aria-label="Idioma de lectura">
-        {#each s.availableLangs as l (l)}
-          <button
-            role="radio"
-            aria-checked={s.lang === l}
-            disabled={langBusy || offline}
-            onclick={() => switchLang(l)}
-            class="h-9 rounded-full text-[13px] font-semibold {s.lang === l ? 'bg-accent text-on-accent' : 'text-soft'}"
-          >{langNames[l] ?? l.toUpperCase()}</button>
-        {/each}
-      </div>
+    {#if readTarget}
+      <a href="/read/{readTarget.id}" class="mt-4 flex h-[54px] w-full items-center justify-center gap-2 rounded-full bg-accent text-[16px] font-bold text-on-accent">
+        <Icon name="play" size={16} filled /> {readTarget.label}
+      </a>
     {/if}
 
-    <div class="mt-4 flex gap-2.5">
-      {#if readTarget}
-        <a href="/read/{readTarget.id}" class="flex h-[54px] flex-1 items-center justify-center gap-2 rounded-full bg-accent text-[15px] font-bold text-on-accent">
-          <Icon name="play" size={16} filled /> {readTarget.label}
-        </a>
-      {/if}
+    <!-- Secondary actions: same weight, labelled. -->
+    <div class="mt-2.5 grid grid-cols-3 gap-2">
       <button
         onclick={libraryButton}
         disabled={busy || offline}
         aria-label={s.inLibrary ? `Lista: ${shelfLabel(s.shelf)}` : "Añadir a la biblioteca"}
         aria-haspopup={s.inLibrary ? "dialog" : undefined}
-        class="flex h-[54px] items-center justify-center gap-2 rounded-full bg-raised font-bold {readTarget ? 'px-5' : 'flex-1'} {s.inLibrary ? 'text-accent-soft' : 'text-fg'}"
+        class="flex h-[60px] flex-col items-center justify-center gap-1 rounded-2xl text-xs font-semibold {s.inLibrary ? 'bg-accent/15 text-accent-soft' : 'bg-surface text-fg'}"
       >
-        <Icon name="bookmark" size={20} filled={s.inLibrary} stroke={2} />
-        <span class="text-[15px]">{s.inLibrary ? shelfLabel(s.shelf) : "Añadir"}</span>
+        <Icon name="bookmark" size={19} filled={s.inLibrary} stroke={2} />
+        {s.inLibrary ? shelfLabel(s.shelf) : "Añadir"}
       </button>
-      <button onclick={() => (downloadMenu = true)} aria-label="Descargar capítulos" class="flex h-[54px] w-[54px] items-center justify-center rounded-full bg-raised text-fg">
-        <Icon name="download" size={22} stroke={2} />
+      <button onclick={() => (downloadMenu = true)} aria-label="Descargar capítulos" class="flex h-[60px] flex-col items-center justify-center gap-1 rounded-2xl bg-surface text-xs font-semibold">
+        <Icon name="download" size={19} stroke={2} />
+        Descargar
+      </button>
+      <button onclick={() => (sourcesOpen = true)} aria-label="Gestionar fuentes" class="flex h-[60px] flex-col items-center justify-center gap-1 rounded-2xl bg-surface text-xs font-semibold">
+        <Icon name="layers" size={19} stroke={2} />
+        {s.sources.length} {s.sources.length === 1 ? "fuente" : "fuentes"}
       </button>
     </div>
 
@@ -338,77 +352,72 @@
       </button>
     {/if}
 
-    {#if fresh.length > 0}
-      <section aria-label="Capítulos nuevos" class="mt-6">
-        <div class="flex items-baseline justify-between">
-          <h2 class="font-display text-lg font-semibold">Nuevos</h2>
-          <button class="text-[13px] font-medium text-accent-soft" onclick={() => download(fresh)}>Descargar {fresh.length === 1 ? "" : `los ${fresh.length}`}</button>
-        </div>
-        <ul class="mt-2 space-y-2">
-          {#each fresh as c (c.id)}
-            {@const st = downloads.status(c.id)}
-            <li class="flex items-center gap-3 rounded-[18px] bg-surface pr-1 pl-3.5">
-              <span class="rounded-lg bg-fresh px-1.5 py-0.5 text-[11px] font-bold text-on-fresh">NUEVO</span>
-              <a href="/read/{c.id}" class="min-w-0 flex-1 py-3">
-                <p class="truncate text-[15px] font-semibold">{chapterLabel(c.number, c.title)}</p>
-                <p class="truncate text-xs text-muted">{relativeDate(c.publishedAt)}{c.publishedAt ? " · " : ""}{c.sourceName}</p>
-              </a>
-              <button
-                class="flex h-11 w-10 items-center justify-center {st === 'downloaded' ? 'text-ok' : 'text-muted'}"
-                onclick={() => rowDownload(c)}
-                aria-label={st === "none" ? `Descargar ${chapterLabel(c.number)}` : st === "queued" ? "Cancelar descarga" : st === "active" ? "Descargando" : "Descargado"}
-              >
-                {#if st === "downloaded"}<Icon name="check" size={18} stroke={2.6} />
-                {:else if st === "active"}<Spinner size={18} />
-                {:else if st === "queued"}<span class="h-2 w-2 rounded-full bg-muted"></span>
-                {:else}<Icon name="download" size={18} stroke={2} />{/if}
-              </button>
-              <button class="flex h-11 w-9 items-center justify-center text-muted" onclick={() => (menuFor = c)} aria-label="Opciones de {chapterLabel(c.number)}">
-                <Icon name="more" size={20} stroke={3} />
-              </button>
-            </li>
-          {/each}
-        </ul>
-      </section>
-    {/if}
-
     <section aria-label="Todos los capítulos" class="mt-6">
       <div class="flex items-baseline justify-between">
-        <h2 class="font-display text-lg font-semibold">Todos</h2>
-        <button class="text-[13px] text-muted" onclick={() => (newestFirst = !newestFirst)}>
+        <h2 class="font-display text-lg font-semibold">Capítulos</h2>
+        <button class="flex items-center gap-1 text-[13px] text-muted" onclick={() => (newestFirst = !newestFirst)} aria-label="Cambiar orden">
           {newestFirst ? "Recientes primero" : "Primeros primero"}
+          <Icon name="sliders" size={14} />
         </button>
       </div>
+      <div class="no-scrollbar mt-2 flex gap-2 overflow-x-auto" role="radiogroup" aria-label="Mostrar">
+        {#each [["all", "Todos", s.chapters.length], ["unread", "Sin leer", unread.length], ["downloaded", "Descargados", dl.done]] as const as [k, label, n] (k)}
+          <button
+            role="radio"
+            aria-checked={listFilter === k}
+            onclick={() => { listFilter = k; shown = STEP; }}
+            class="h-8 shrink-0 rounded-full px-3.5 text-[13px] font-semibold {listFilter === k ? 'bg-fg text-base' : 'bg-surface text-soft'}"
+          >{label} <span class={listFilter === k ? "" : "text-muted"}>{n}</span></button>
+        {/each}
+      </div>
       <ul class="mt-1">
-        {#each ordered as c (c.id)}
+        {#each ordered.slice(0, shown) as c (c.id)}
           {@const st = downloads.status(c.id)}
           {@const current = s.resume?.chapterId === c.id}
-          <li class="flex items-center">
-            <a href="/read/{c.id}" class="min-w-0 flex-1 py-3">
-              <p class="truncate text-[15px] {c.read ? 'text-faint' : current ? 'font-semibold text-accent-soft' : 'font-medium'}">
-                {chapterLabel(c.number, c.title)}
-                {#if c.title && c.number !== null && !/^ch(apter)?\.?\s*\d/i.test(c.title)}<span class="font-normal text-muted"> · {c.title}</span>{/if}
-              </p>
-              <p class="truncate text-xs text-muted">
-                {#if current && s.resume}Leyendo · pág. {s.resume.page + 1}{:else}{relativeDate(c.publishedAt)}{c.publishedAt ? " · " : ""}{c.sourceName}{c.scanlator ? ` · ${c.scanlator}` : ""}{/if}
-              </p>
-            </a>
-            <button
-              class="flex h-12 w-10 items-center justify-center {st === 'downloaded' ? 'text-ok' : 'text-muted'}"
-              onclick={() => rowDownload(c)}
-              aria-label={st === "none" ? `Descargar ${chapterLabel(c.number)}` : st === "queued" ? "Cancelar descarga" : st === "active" ? "Descargando" : "Descargado"}
-            >
-              {#if st === "downloaded"}<Icon name="check" size={17} stroke={2.6} />
-              {:else if st === "active"}<Spinner size={17} />
-              {:else if st === "queued"}<span class="h-2 w-2 rounded-full bg-muted"></span>
-              {:else}<Icon name="download" size={18} stroke={2} />{/if}
-            </button>
-            <button class="flex h-12 w-11 items-center justify-center text-muted" onclick={() => (menuFor = c)} aria-label="Opciones de {chapterLabel(c.number, c.title)}">
-              <Icon name="more" size={20} stroke={3} />
-            </button>
+          <li>
+            <SwipeRow>
+              {#snippet actions(close)}
+                <button
+                  class="flex-1 bg-accent text-xs font-semibold text-on-accent"
+                  onclick={() => { close(); void setRead(c, !c.read); }}
+                >{c.read ? "No leído" : "Leído"}</button>
+                <button class="flex-1 bg-raised text-xs font-semibold" onclick={() => { close(); menuFor = c; }}>Más</button>
+              {/snippet}
+              <div class="flex items-center">
+                <a href="/read/{c.id}" class="min-w-0 flex-1 py-3">
+                  <p class="flex items-center gap-2 truncate text-[15px] {c.read ? 'text-faint' : current ? 'font-semibold text-accent-soft' : 'font-medium'}">
+                    {#if freshIds.has(c.id)}<span class="shrink-0 rounded-md bg-fresh px-1.5 text-[10px] leading-[18px] font-bold text-on-fresh">NUEVO</span>{/if}
+                    <span class="truncate">
+                      {chapterLabel(c.number, c.title)}
+                      {#if c.title && c.number !== null && !/^ch(apter)?\.?\s*\d/i.test(c.title)}<span class="font-normal text-muted"> · {c.title}</span>{/if}
+                    </span>
+                  </p>
+                  <p class="truncate text-xs text-muted">
+                    {#if current && s.resume}Leyendo · pág. {s.resume.page + 1}{:else}{relativeDate(c.publishedAt)}{c.publishedAt ? " · " : ""}{c.sourceName}{c.scanlator ? ` · ${c.scanlator}` : ""}{/if}
+                  </p>
+                </a>
+                <button
+                  class="flex h-12 w-11 items-center justify-center {st === 'downloaded' ? 'text-ok' : 'text-muted'}"
+                  onclick={() => rowDownload(c)}
+                  aria-label={st === "none" ? `Descargar ${chapterLabel(c.number)}` : st === "queued" ? "Cancelar descarga" : st === "active" ? "Descargando" : "Descargado"}
+                >
+                  {#if st === "downloaded"}<Icon name="check" size={17} stroke={2.6} />
+                  {:else if st === "active"}<Spinner size={17} />
+                  {:else if st === "queued"}<span class="h-2 w-2 rounded-full bg-muted"></span>
+                  {:else}<Icon name="download" size={18} stroke={2} />{/if}
+                </button>
+              </div>
+            </SwipeRow>
           </li>
         {/each}
       </ul>
+      {#if ordered.length > shown}
+        <button class="mt-2 h-11 w-full rounded-full bg-surface text-sm font-semibold text-soft" onclick={() => (shown += STEP * 3)}>
+          Mostrar más ({ordered.length - shown})
+        </button>
+      {:else if ordered.length === 0}
+        <p class="py-8 text-center text-sm text-muted">{listFilter === "downloaded" ? "No hay capítulos descargados." : "Ya lo has leído todo."}</p>
+      {/if}
     </section>
   </div>
 {/if}
@@ -458,6 +467,7 @@
   <div class="pb-safe fixed inset-x-0 bottom-0 z-50 rounded-t-[28px] bg-raised p-3" role="dialog" aria-label="Descargar">
     <p class="font-display px-3 pt-2 text-lg font-semibold">Descargar</p>
     <p class="px-3 pb-3 text-sm text-muted">Para leer sin conexión</p>
+    {#if fresh.length}<button class="sheet-btn" onclick={() => download(fresh)}>Los nuevos ({fresh.length})</button>{/if}
     {#if next5.length}<button class="sheet-btn" onclick={() => download(next5)}>Los próximos {next5.length}</button>{/if}
     <button class="sheet-btn" disabled={!unread.length} onclick={() => download(unread)}>Todos los no leídos ({unread.length})</button>
     <button class="sheet-btn" disabled={dl.done === s.chapters.length} onclick={() => download(s!.chapters)}>Toda la serie ({s.chapters.length})</button>

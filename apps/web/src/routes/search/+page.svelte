@@ -109,7 +109,10 @@
 </script>
 
 <div class="pt-safe sticky top-0 z-20 bg-base/90 px-5 pt-4 pb-3 backdrop-blur-xl">
-  <h1 class="font-display text-[30px] leading-tight font-bold tracking-[-0.03em]">Buscar</h1>
+  <div class="flex items-center justify-between">
+    <h1 class="font-display text-[30px] leading-tight font-bold tracking-[-0.03em]">Buscar</h1>
+    <a href="/explore" class="text-[15px] font-semibold text-accent-soft">Cancelar</a>
+  </div>
   <form class="relative mt-3" onsubmit={run} role="search">
     <span class="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-muted"><Icon name="search" size={19} stroke={2} /></span>
     <label for="q" class="sr-only">Buscar series</label>

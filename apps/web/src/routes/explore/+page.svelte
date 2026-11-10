@@ -40,6 +40,7 @@
     ["Hentai", "Hentai"],
   ];
   let genre = $state("");
+  let genreOpen = $state(false);
 
   /** A grid entry: either a source's own series, or an AniList title to look up on every source. */
   interface Item {
@@ -174,6 +175,14 @@
 
 <PageHeader title="Explorar" />
 
+<!-- Search lives here: one place to find something new. -->
+<a
+  href="/search"
+  class="mx-5 mb-3 flex h-12 items-center gap-2.5 rounded-full bg-surface px-4 text-[15px] text-muted active:bg-raised"
+>
+  <Icon name="search" size={18} stroke={2} /> Buscar en todas las fuentes…
+</a>
+
 <div role="tablist" aria-label="Fuente" class="no-scrollbar flex gap-2 overflow-x-auto px-5">
   <button
     role="tab"
@@ -193,9 +202,10 @@
   {/each}
 </div>
 
-<div class="mt-3 space-y-3 px-5">
+<!-- One row of controls: what to show (+ genre / language on the side). -->
+<div class="mt-3 flex items-center gap-2 px-5">
   {#if sourceKey === TRENDING}
-    <div class="grid grid-cols-4 gap-1 rounded-full bg-surface p-1" role="radiogroup" aria-label="Origen">
+    <div class="grid flex-1 grid-cols-4 gap-1 rounded-full bg-surface p-1" role="radiogroup" aria-label="Origen">
       {#each [["KR", "Manhwa"], ["JP", "Manga"], ["CN", "Manhua"], ["all", "Todo"]] as const as [o, label] (o)}
         <button
           role="radio"
@@ -205,43 +215,62 @@
         >{label}</button>
       {/each}
     </div>
-    <div class="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5" role="radiogroup" aria-label="Género">
+    <button
+      class="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full {genre ? 'bg-accent/20 text-accent-soft' : 'bg-surface text-soft'}"
+      onclick={() => (genreOpen = true)}
+      aria-label="Género: {GENRES.find(([g]) => g === genre)?.[1] ?? 'Todos'}"
+    >
+      <Icon name="sliders" size={18} stroke={2} />
+      {#if genre}<span class="absolute top-2 right-2 h-2 w-2 rounded-full bg-accent"></span>{/if}
+    </button>
+  {:else}
+    <div class="grid flex-1 grid-cols-2 gap-1 rounded-full bg-surface p-1" role="radiogroup" aria-label="Orden">
+      {#each [["popular", "Populares"], ["latest", "Novedades"]] as const as [k, label] (k)}
+        <button
+          role="radio"
+          aria-checked={(noLatest ? "popular" : kind) === k}
+          disabled={k === "latest" && noLatest}
+          onclick={() => { kind = k; reset(); }}
+          class="h-9 rounded-full text-[13px] font-semibold disabled:opacity-40 {(noLatest ? 'popular' : kind) === k ? 'bg-accent text-on-accent' : 'text-soft'}"
+        >{label}</button>
+      {/each}
+    </div>
+    {#if langs.length > 1}
+      <div class="flex shrink-0 gap-0.5 rounded-full bg-surface p-1" role="radiogroup" aria-label="Idioma">
+        {#each langs as l (l)}
+          <button
+            role="radio"
+            aria-checked={lang === l}
+            aria-label={langNames[l] ?? l}
+            onclick={() => pickLang(l)}
+            class="h-9 rounded-full px-3 text-[12px] font-bold uppercase {lang === l ? 'bg-fg text-base' : 'text-muted'}"
+          >{l}</button>
+        {/each}
+      </div>
+    {/if}
+  {/if}
+</div>
+{#if sourceKey === TRENDING && genre}
+  <p class="mt-2 px-6 text-xs text-muted">Género: <span class="font-semibold text-soft">{GENRES.find(([g]) => g === genre)?.[1]}</span> · <button class="text-accent-soft" onclick={() => { genre = ""; reset(); }}>quitar</button></p>
+{/if}
+
+{#if genreOpen}
+  <button class="fixed inset-0 z-40 bg-black/60" onclick={() => (genreOpen = false)} aria-label="Cerrar"></button>
+  <div class="pb-safe fixed inset-x-0 bottom-0 z-50 rounded-t-[28px] bg-raised p-5" role="dialog" aria-label="Género">
+    <p class="font-display text-lg font-semibold">Género</p>
+    <div class="mt-3 flex flex-wrap gap-2" role="radiogroup" aria-label="Géneros">
       {#each GENRES as [g, label] (g)}
         <button
           role="radio"
           aria-checked={genre === g}
-          onclick={() => { genre = g; reset(); }}
-          class="h-8 shrink-0 rounded-full px-3.5 text-[13px] font-semibold {genre === g ? 'bg-fg text-base' : 'bg-raised text-soft'}"
+          onclick={() => { genre = g; genreOpen = false; reset(); }}
+          class="h-9 rounded-full px-4 text-[13px] font-semibold {genre === g ? 'bg-accent text-on-accent' : 'bg-base text-soft'}"
         >{label}</button>
       {/each}
     </div>
-    <p class="px-1 text-xs text-muted">Lo más leído ahora mismo según AniList. Toca una serie para buscarla en tus fuentes.</p>
-  {:else}
-  <div class="grid grid-cols-2 gap-1 rounded-full bg-surface p-1" role="radiogroup" aria-label="Orden">
-    {#each [["popular", "Populares"], ["latest", "Novedades"]] as const as [k, label] (k)}
-      <button
-        role="radio"
-        aria-checked={(noLatest ? "popular" : kind) === k}
-        disabled={k === "latest" && noLatest}
-        onclick={() => { kind = k; reset(); }}
-        class="h-9 rounded-full text-[13px] font-semibold disabled:opacity-40 {(noLatest ? 'popular' : kind) === k ? 'bg-accent text-on-accent' : 'text-soft'}"
-      >{label}</button>
-    {/each}
+    <button class="mt-4 h-12 w-full rounded-full bg-line font-semibold" onclick={() => (genreOpen = false)}>Cerrar</button>
   </div>
-  {/if}
-  {#if langs.length > 1 && sourceKey !== TRENDING}
-    <div class="flex gap-2" role="radiogroup" aria-label="Idioma">
-      {#each langs as l (l)}
-        <button
-          role="radio"
-          aria-checked={lang === l}
-          onclick={() => pickLang(l)}
-          class="h-8 rounded-full px-3.5 text-[13px] font-semibold {lang === l ? 'bg-fg text-base' : 'bg-raised text-soft'}"
-        >{langNames[l] ?? l.toUpperCase()}</button>
-      {/each}
-    </div>
-  {/if}
-</div>
+{/if}
 
 
 
