@@ -132,7 +132,7 @@
       {#each reading as s (s.id)}
         <a
           href="/series/{s.id}?resume=1"
-          class="flex h-[188px] w-[78%] max-w-[300px] shrink-0 snap-start overflow-hidden rounded-[var(--radius-panel)] border border-line/70 bg-surface"
+          class="flex h-[188px] {reading.length === 1 ? 'w-full' : 'w-[78%] max-w-[300px]'} shrink-0 snap-start overflow-hidden rounded-[var(--radius-panel)] border border-line/70 bg-surface"
         >
           <Cover src={s.coverUrl} alt={s.title} rounded="rounded-none" class="h-full w-[118px] shrink-0 !aspect-auto" />
           <div class="flex min-w-0 flex-1 flex-col gap-1.5 p-4">
@@ -172,16 +172,13 @@
         {/if}
       </button>
     {/each}
-  </div>
-
-  <div class="mt-3 flex justify-end px-5">
-    <label class="flex items-center gap-1.5 text-xs text-muted">
+    <!-- Sort, as the last chip of the same row. -->
+    <label class="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-raised pr-2 pl-3.5 text-[13px] font-semibold text-soft">
       <Icon name="sliders" size={14} />
-      <span class="sr-only">Ordenar</span>
-      <select bind:value={sort} class="bg-transparent font-semibold text-soft" aria-label="Ordenar">
+      <select bind:value={sort} class="bg-transparent" aria-label="Ordenar">
         <option value="updated">Actualizadas</option>
-        <option value="read">Leídas recientemente</option>
-        <option value="title">Título A–Z</option>
+        <option value="read">Leídas</option>
+        <option value="title">A–Z</option>
       </select>
     </label>
   </div>
@@ -195,7 +192,7 @@
           : "No hay series en esta lista."}
     </p>
   {:else}
-    <div class="mt-2 grid grid-cols-2 gap-x-3.5 gap-y-5 px-5">
+    <div class="mt-4 grid grid-cols-2 gap-x-3.5 gap-y-5 px-5">
       {#each visible as s (s.id)}
         <a href="/series/{s.id}" class="min-w-0">
           <div class="relative">
