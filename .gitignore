@@ -9,3 +9,4 @@ logs/
 *.db-*
 coverage/
 .DS_Store
+__pycache__/
