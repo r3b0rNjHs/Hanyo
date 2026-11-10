@@ -8,6 +8,5 @@
 
 ## Product
 
-- [ ] Light theme variant of Pulso
 
 ## Tech
