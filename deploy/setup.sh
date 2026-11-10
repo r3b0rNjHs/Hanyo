@@ -108,13 +108,20 @@ sudo systemctl reload caddy
 CRON="30 3 * * * sqlite3 $APP_DIR/data/hanyo.db \".backup '$APP_DIR/data/backups/hanyo-\$(date +\\%F).db'\" && find $APP_DIR/data/backups -name 'hanyo-*.db' -mtime +7 -delete"
 sudo -u "$DEPLOY_USER" bash -c "mkdir -p $APP_DIR/data/backups; (crontab -l 2>/dev/null | grep -v 'hanyo.db'; echo \"$CRON\") | crontab -"
 
-IP=$(curl -s ifconfig.me || echo "<VPS_IP>")
+# -4: DNS needs the IPv4 for the A record (ifconfig.me prefers IPv6 when available).
+IP=$(curl -4 -s --max-time 10 ifconfig.me || echo "<VPS_IPv4>")
+RESOLVED=$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk 'NR==1{print $1}')
+if [ "$RESOLVED" = "$IP" ]; then
+  DNS_STEP="1. DNS: $DOMAIN already points to $IP. Nothing to do."
+else
+  DNS_STEP="1. DNS (IONOS → yoqze.com → DNS): add an A record   hanyo → $IP
+   Caddy gets the HTTPS certificate automatically once it resolves."
+fi
 cat <<DONE
 
 === Hanyo installed ===
-1. DNS (IONOS): add an A record   hanyo → $IP
-   Caddy gets the HTTPS certificate automatically once it resolves.
+$DNS_STEP
 2. Open https://$DOMAIN on the iPhone in Safari, log in, then Share → Add to Home Screen.
 3. For auto-deploys, add the GitHub Actions secrets VPS_HOST, VPS_USER, VPS_SSH_KEY
-   to r3b0rNjHs/Hanyo (same values as yoqze-agents).
+   and the variable DEPLOY_ENABLED=true to r3b0rNjHs/Hanyo (same secrets as yoqze-agents).
 DONE
