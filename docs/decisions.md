@@ -41,3 +41,11 @@ chapters: ~80% smaller (Eleceed ch. 94: 7.3 MB vs ~38 MB) with no visible differ
 (`docs/screenshots/11-calidad-webp.png`). Re-encoding costs ~1.5 s per long strip, so online reading never
 waits for it (original served, compact version built in the background); downloads (`?compact=1`) and
 server prefetch wait for it. The original is kept if re-encoding doesn't make it smaller.
+
+## ADR-009: "Pulso" visual design
+Chosen by the owner between two directions mocked on a design canvas (A "Hanji": editorial, warm,
+serif; B "Pulso": vivid, cover-forward). Pulso: cool black base, electric violet accent (#8E7CFF) for
+actions and selection, coral (#FF8A73) only for "new", mint for done; Space Grotesk display over Inter,
+both self-hosted (@fontsource) so they work offline. Colours are role-named tokens in `app.css`
+(`base`, `surface`, `raised`, `accent`, `fresh`…), so the palette changes in one place. Floating pill
+navigation and reader bars; covers fall back to the title set big on a solid block.
