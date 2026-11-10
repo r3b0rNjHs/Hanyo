@@ -256,6 +256,7 @@ export function createApp(d: AppDeps): Hono {
   });
 
   app.get("/library", (c) => c.json(d.library.listLibrary()));
+  app.get("/library/links", (c) => c.json(d.library.libraryLinks()));
 
   app.get("/server/stats", async (c) =>
     c.json<ServerStats>({
