@@ -9,7 +9,6 @@
 ## Product
 - [ ] "Download new chapters automatically" per series (on app open, since iOS has no background fetch)
 - [ ] Browse tab: popular / latest per source (Suwayomi `POPULAR` / `LATEST`)
-- [ ] Categories / reading status (reading, plan to read, completed)
 - [ ] Pinch-zoom in paged mode (@panzoom/panzoom)
 - [ ] Store page dimensions server-side so strip placeholders have exact size before load
 - [ ] Resume within a tall page (store intra-page fraction, not just page index)
