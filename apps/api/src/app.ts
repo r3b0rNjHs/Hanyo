@@ -283,9 +283,14 @@ export function createApp(d: AppDeps): Hono {
 
   app.post("/progress", async (c) => {
     const body = z
-      .object({ chapterId: z.number().int(), page: z.number().int().min(0), completed: z.boolean() })
+      .object({
+        chapterId: z.number().int(),
+        page: z.number().int().min(0),
+        offset: z.number().min(0).max(1).optional(),
+        completed: z.boolean(),
+      })
       .parse(await c.req.json()) satisfies ProgressUpdate;
-    d.library.saveProgress(body.chapterId, body.page, body.completed);
+    d.library.saveProgress(body.chapterId, body.page, body.completed, body.offset);
     return c.json({ ok: true });
   });
 

@@ -114,7 +114,9 @@ describe("LibraryService", () => {
     const id = await library.open("mangadex", "md-1");
     await library.linkSource(id, "suwayomi:42", "7");
     const ch2 = library.mergedChapters(id).find((c) => c.number === 2)!;
-    library.saveProgress(ch2.id, 5, true);
+    library.saveProgress(ch2.id, 5, false, 0.42);
+    expect(library.detailFromDb(id)!.resume).toMatchObject({ chapterId: ch2.id, page: 5, offset: 0.42 });
+    library.saveProgress(ch2.id, 5, true, 0.9);
 
     const detail = library.detailFromDb(id)!;
     expect(detail.chapters.find((c) => c.number === 2)!.read).toBe(true);

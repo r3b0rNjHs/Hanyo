@@ -95,6 +95,7 @@ export class PageService {
       chapterTitle: ctx.chapter.title,
       sourceName: ctx.link.source_name,
       resumePage: basics.resume?.chapterId === chapterId ? basics.resume.page : null,
+      resumeOffset: basics.resume?.chapterId === chapterId ? basics.resume.offset : null,
       pages: direct ? urls : urls.map((_, i) => `/api/chapters/${chapterId}/pages/${i}`),
       direct,
       prevChapterId: ctx.prevId,
