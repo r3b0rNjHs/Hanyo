@@ -74,7 +74,8 @@ fi
 
 say "[5/8] Building"
 sudo mkdir -p "$WEB_ROOT" && sudo chown "$DEPLOY_USER:$DEPLOY_USER" "$WEB_ROOT"
-sudo -u "$DEPLOY_USER" bash -lc "cd $APP_DIR && mkdir -p logs data && bash deploy/deploy.sh --no-pull"
+# deploy.sh first syncs the checkout to origin/main, so re-running setup also picks up fixes.
+sudo -u "$DEPLOY_USER" bash -lc "cd $APP_DIR && mkdir -p logs data && bash deploy/deploy.sh"
 
 say "[6/8] Suwayomi + FlareSolverr"
 sudo docker compose --project-directory "$APP_DIR/deploy" -f "$APP_DIR/deploy/docker-compose.yml" up -d
