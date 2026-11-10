@@ -64,3 +64,12 @@ Pulso stays dark by default (reading at night, OLED). The light variant only red
 tokens under `:root[data-theme="light"]` (and under `system` when the OS is light), with a deeper
 violet (#6A56EE) so accent text keeps contrast on white. An inline script in `app.html` applies the
 saved choice before first paint. The reader keeps its own background setting.
+
+## ADR-012: Four tabs — Biblioteca, Novedades, Explorar, Descargas
+Search and Explore did the same job ("find something new") from two tabs, Settings took a tab for a
+screen visited rarely, and new chapters were only visible series by series. Now: Novedades is a
+feed of the latest chapters of the series you follow (Leyendo / En pausa), with a dot on its tab
+for unseen ones; search opens from Explore's search bar (Explore stays highlighted); Settings moves
+to the library header. The series page puts one full-width primary action first, three equal
+secondary actions (list, download, sources), the language as a compact EN/ES switch, and filters
+plus stepwise rendering for long chapter lists.

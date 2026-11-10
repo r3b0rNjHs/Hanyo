@@ -20,7 +20,8 @@ apps/api/src/
                updates (refresh, auto-link sources, push), image-cache, push
   app.ts       all HTTP routes under /api (cookie auth)
 apps/web/src/
-  routes/      / (library), /search, /series/[id], /read/[chapterId], /downloads, /settings, /login
+  routes/      / (library), /updates, /explore (+ /search), /series/[id], /read/[chapterId], /downloads,
+               /settings (from the library header), /login
   lib/reader/  StripView (vertical, windowed mounting), PagedView (RTL/LTR), settings
   lib/offline/ downloads (Cache Storage + IndexedDB queue), progress queue, cache names
   service-worker.ts  shell cache, network-first API, cache-only downloaded pages
