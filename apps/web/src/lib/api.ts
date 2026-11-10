@@ -79,6 +79,7 @@ export const api = {
     post<{ newNumbers: number[]; errors: string[]; detail: SeriesDetail }>(`/series/${id}/refresh`, {}),
   autoLink: (id: number) => post<{ added: string[]; detail: SeriesDetail }>(`/series/${id}/autolink`, {}),
   setShelf: (id: number, shelf: Shelf) => post<SeriesDetail>(`/series/${id}/shelf`, { shelf }),
+  setAutoDownload: (id: number, enabled: boolean) => post<SeriesDetail>(`/series/${id}/autodownload`, { enabled }),
   setLang: (id: number, lang: string) => post<SeriesDetail>(`/series/${id}/lang`, { lang }),
   setSourcePriority: (id: number, linkId: number, priority: number) =>
     request<SeriesDetail>(`/series/${id}/sources/${linkId}`, { method: "PATCH", body: JSON.stringify({ priority }) }),

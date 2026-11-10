@@ -8,6 +8,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import { downloads } from "$lib/offline/downloads.svelte";
   import { flushProgressQueue } from "$lib/offline/progress-queue";
+  import { runAutoDownloads } from "$lib/offline/auto-download";
   import { connection } from "$lib/connection.svelte";
 
   let { children } = $props();
@@ -46,7 +47,14 @@
     window.addEventListener("online", online);
     window.addEventListener("offline", offline);
     if (navigator.onLine) void flushProgressQueue();
+    // Automatic downloads on open and when the app returns to the foreground (throttled).
+    const auto = () => {
+      if (document.visibilityState === "visible" && !page.url.pathname.startsWith("/login")) void runAutoDownloads();
+    };
+    setTimeout(auto, 3000);
+    document.addEventListener("visibilitychange", auto);
     return () => {
+      document.removeEventListener("visibilitychange", auto);
       window.removeEventListener("online", online);
       window.removeEventListener("offline", offline);
     };

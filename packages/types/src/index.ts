@@ -102,6 +102,8 @@ export interface SeriesSummary {
   inLibrary: boolean;
   /** Reading list (meaningful only while inLibrary). */
   shelf: Shelf;
+  /** Download new chapters by themselves when the app is opened. */
+  autoDownload: boolean;
   unreadCount: number;
   latestChapter: number | null;
   lastReadChapter: number | null;
