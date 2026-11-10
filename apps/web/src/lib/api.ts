@@ -76,6 +76,7 @@ export const api = {
     post<SeriesDetail>(`/series/${id}/read`, { numbers, read }),
 
   library: () => request<SeriesSummary[]>("/library"),
+  relinkLibrary: () => post<{ started: boolean; series: number }>("/library/relink", {}),
   chapterPages: (chapterId: number) => request<ChapterPages>(`/chapters/${chapterId}/pages`),
 
   /** Saves progress; when offline it is queued and replayed later. */

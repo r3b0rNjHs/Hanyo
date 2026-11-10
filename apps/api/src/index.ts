@@ -27,7 +27,8 @@ const cache = new ImageCache(path.join(config.dataDir, "cache"), config.imageCac
 const library = new LibraryService(db, registry, (key, url) => wrapImage(signer, key, url));
 const pages = new PageService(library, registry, cache, config.imageQuality);
 const push = new PushService(db, config.vapid.publicKey, config.vapid.privateKey, config.vapid.subject);
-const updates = new UpdateService(library, registry, pages, push);
+const titles = new AniListTitles();
+const updates = new UpdateService(library, registry, pages, push, console.log, titles);
 
 const api = createApp({
   password: config.password,
@@ -38,7 +39,7 @@ const api = createApp({
   pages,
   updates,
   push,
-  titles: new AniListTitles(),
+  titles,
 });
 
 const root = new Hono();

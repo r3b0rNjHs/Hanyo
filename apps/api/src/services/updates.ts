@@ -1,6 +1,7 @@
 import type { UpdateCheckResult } from "@hanyo/types";
 import { normalizeTitle } from "../lib/text.js";
 import type { ProviderRegistry } from "../providers/registry.js";
+import type { AniListTitles } from "./anilist.js";
 import type { LibraryService } from "./library.js";
 import type { PageService } from "./pages.js";
 import type { PushService } from "./push.js";
@@ -15,9 +16,13 @@ export class UpdateService {
     private readonly pages: PageService,
     private readonly push: PushService,
     private readonly log: (msg: string) => void = console.log,
+    /** Alternative names from AniList, so a series is found on sources that title it differently. */
+    private readonly titles?: AniListTitles,
   ) {}
 
   start(intervalMin: number): void {
+    // Shortly after boot (e.g. right after a deploy that changed extensions), re-link the library.
+    setTimeout(() => void this.relinkLibrary().catch((e) => this.log(`relink failed: ${e}`)), 60_000).unref();
     if (intervalMin <= 0) return;
     this.timer = setInterval(() => void this.checkAll().catch((e) => this.log(`update check failed: ${e}`)), intervalMin * 60_000);
     this.timer.unref();
@@ -36,6 +41,8 @@ export class UpdateService {
   }
 
   private async doCheckAll(): Promise<UpdateCheckResult> {
+    // Pick up sources added since the last run (cheap when nothing changed).
+    await this.relinkLibrary().catch((e) => this.log(`relink failed: ${e}`));
     const ids = this.library.inLibraryIds();
     const result: UpdateCheckResult = { checkedSeries: ids.length, newChapters: 0, errors: [] };
     for (const id of ids) {
@@ -65,14 +72,14 @@ export class UpdateService {
     const detail = this.library.detailFromDb(seriesId);
     if (!detail) return [];
     const linked = new Set(detail.sources.map((s) => s.sourceKey));
-    const target = normalizeTitle(detail.title);
+    const names = await this.knownNames(detail.title);
     const added: string[] = [];
     const sources = (await this.registry.listSources()).filter((s) => !linked.has(s.key));
     await Promise.allSettled(
       sources.map(async (s) => {
         const { provider, sourceId } = this.registry.resolve(s.key);
         const hits = await provider.search(sourceId, detail.title);
-        const match = hits.find((h) => normalizeTitle(h.title) === target);
+        const match = hits.find((h) => [h.title, ...(h.altTitles ?? [])].some((t) => names.has(normalizeTitle(t))));
         if (!match) return;
         await this.library.linkSource(seriesId, s.key, match.externalId);
         added.push(s.name);
@@ -80,5 +87,50 @@ export class UpdateService {
     );
     if (added.length) this.log(`auto-linked "${detail.title}" to ${added.join(", ")}`);
     return added;
+  }
+
+  /**
+   * The series' title plus every name AniList knows for the entry with that exact title
+   * ("Return of the Blossoming Blade" = "Return of the Mount Hua Sect"). Only an entry that
+   * contains the title itself is used, so a vague title can't pull in another series.
+   */
+  private async knownNames(title: string): Promise<Set<string>> {
+    const own = normalizeTitle(title);
+    const names = new Set([own]);
+    const clusters = (await this.titles?.lookup(title)) ?? [];
+    const same = clusters.find((c) => c.titles.some((t) => normalizeTitle(t) === own));
+    for (const t of same?.titles ?? []) names.add(normalizeTitle(t));
+    names.delete("");
+    return names;
+  }
+
+  private relinking: Promise<{ checked: number; linked: number }> | null = null;
+
+  /**
+   * Search every library series on the sources it hasn't been matched against yet: after
+   * extensions are added or removed, existing series pick up the new sources by themselves.
+   * Series already matched against the current source set are skipped unless `force`.
+   */
+  relinkLibrary(force = false): Promise<{ checked: number; linked: number }> {
+    this.relinking ??= (async () => {
+      const fingerprint = (await this.registry.listSources()).map((s) => s.key).sort().join(",");
+      let checked = 0;
+      let linked = 0;
+      for (const id of this.library.inLibraryIds()) {
+        if (!force && this.library.linkedAgainst(id) === fingerprint) continue;
+        checked++;
+        try {
+          linked += (await this.autoLink(id)).length;
+          this.library.setLinkedAgainst(id, fingerprint);
+        } catch (e) {
+          this.log(`relink ${id} failed: ${(e as Error).message}`);
+        }
+      }
+      if (checked) this.log(`relink: ${checked} series checked, ${linked} sources linked`);
+      return { checked, linked };
+    })().finally(() => {
+      this.relinking = null;
+    });
+    return this.relinking;
   }
 }

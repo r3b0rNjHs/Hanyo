@@ -81,6 +81,10 @@ const MIGRATIONS: string[] = [
   ALTER TABLE series ADD COLUMN lang TEXT NOT NULL DEFAULT 'en';
   ALTER TABLE series_sources ADD COLUMN lang TEXT NOT NULL DEFAULT 'en';
   `,
+  // v3: which set of sources a series was last matched against, to re-link it when sources change.
+  `
+  ALTER TABLE series ADD COLUMN linked_against TEXT;
+  `,
 ];
 
 export function openDb(dataDir: string): DB {
