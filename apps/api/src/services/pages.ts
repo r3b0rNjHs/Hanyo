@@ -39,6 +39,7 @@ export class PageService {
       pages: urls.map((_, i) => `/api/chapters/${chapterId}/pages/${i}`),
       prevChapterId: ctx.prevId,
       nextChapterId: ctx.nextId,
+      nextChapterNumber: ctx.nextNumber,
     };
   }
 

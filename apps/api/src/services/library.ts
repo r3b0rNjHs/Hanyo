@@ -305,6 +305,7 @@ export class LibraryService {
     link: SourceRow;
     prevId: number | null;
     nextId: number | null;
+    nextNumber: number | null;
   } | null {
     const chapter = this.db.prepare<[number], ChapterRow>("SELECT * FROM chapters WHERE id = ?").get(chapterId);
     if (!chapter) return null;
@@ -320,6 +321,7 @@ export class LibraryService {
       link,
       prevId: idx > 0 ? merged[idx - 1]!.id : null,
       nextId: idx >= 0 && idx < merged.length - 1 ? merged[idx + 1]!.id : null,
+      nextNumber: idx >= 0 && idx < merged.length - 1 ? merged[idx + 1]!.number : null,
     };
   }
 
