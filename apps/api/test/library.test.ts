@@ -228,3 +228,13 @@ describe("LibraryService languages", () => {
     expect(() => library.setLang(id, "fr")).toThrow(/No hay fuentes/);
   });
 });
+
+describe("LibraryService.counts", () => {
+  it("counts library series and their chapters", async () => {
+    const { library } = setup();
+    const id = await library.open("mangadex", "md-1");
+    expect(library.counts()).toEqual({ series: 0, chapters: 0 });
+    library.setInLibrary(id, true);
+    expect(library.counts()).toEqual({ series: 1, chapters: 4 });
+  });
+});
