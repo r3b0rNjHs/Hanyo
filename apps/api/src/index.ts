@@ -21,7 +21,7 @@ const db = openDb(config.dataDir);
 const signer = new Signer(config.sessionSecret);
 const registry = new ProviderRegistry([
   new MangaDexProvider(config.userAgent),
-  new SuwayomiProvider(config.suwayomiUrl, config.suwayomiSources),
+  new SuwayomiProvider(config.suwayomiUrl, config.suwayomiSources, config.suwayomiLangs),
 ]);
 const cache = new ImageCache(path.join(config.dataDir, "cache"), config.imageCacheMaxBytes);
 const library = new LibraryService(db, registry, (key, url) => wrapImage(signer, key, url));

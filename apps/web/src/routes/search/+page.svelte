@@ -79,7 +79,9 @@
   async function open(g: ResultGroup) {
     opening = g.key;
     try {
-      const [first, ...others] = [...g.hits].sort((a, b) => (a.sourceKey === "mangadex" ? -1 : b.sourceKey === "mangadex" ? 1 : 0));
+      // Open the English version when there is one (MangaDex first); the series page can switch language.
+      const rank = (h: SearchHit) => (h.sourceKey === "mangadex" ? 0 : h.lang === "en" ? 1 : 2);
+      const [first, ...others] = [...g.hits].sort((a, b) => rank(a) - rank(b));
       const { id } = await api.openSeries(first!.sourceKey, first!.externalId);
       // Link the same series on the other sources so the chapter list is complete.
       for (const o of others) {
@@ -139,7 +141,7 @@
           {#if g.aka.length}<p class="mt-0.5 truncate text-xs text-muted">También: {g.aka.join(" · ")}</p>{/if}
           <div class="mt-2 flex flex-wrap gap-1">
             {#each g.hits as h (h.sourceKey)}
-              <span class="rounded-full bg-raised px-2 py-0.5 text-[11px] font-medium text-soft">{h.sourceName}</span>
+              <span class="rounded-full bg-raised px-2 py-0.5 text-[11px] font-medium text-soft">{h.sourceName}<span class="ml-1 text-faint uppercase">{h.lang}</span></span>
             {/each}
           </div>
         </div>

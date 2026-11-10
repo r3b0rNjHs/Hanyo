@@ -149,3 +149,55 @@ describe("LibraryService", () => {
     expect(a).toBe(b);
   });
 });
+
+describe("LibraryService languages", () => {
+  function setupLangs() {
+    const db = openMemoryDb();
+    const en = new FakeProvider(
+      "mangadex",
+      [{ key: "mangadex", provider: "mangadex", sourceId: "mangadex", name: "MangaDex", lang: "en", iconUrl: null }],
+      { "md-1": base("Lookism", "md-1", [1, 2, 3], "en") },
+    );
+    const es = new FakeProvider(
+      "suwayomi",
+      [{ key: "suwayomi:7", provider: "suwayomi", sourceId: "7", name: "LeerCapitulo", lang: "es-419", iconUrl: null }],
+      { "9": base("Lookism", "9", [1, 2, 3, 4, 5], "es") },
+    );
+    const library = new LibraryService(db, new ProviderRegistry([en, es]), (_k, u) => u);
+    return { library };
+  }
+
+  it("reads a series in one language only, starting with the source it was opened from", async () => {
+    const { library } = setupLangs();
+    const id = await library.open("mangadex", "md-1");
+    await library.linkSource(id, "suwayomi:7", "9");
+    const detail = library.detailFromDb(id)!;
+    expect(detail.lang).toBe("en");
+    expect(detail.availableLangs).toEqual(["en", "es"]);
+    expect(detail.chapters.map((c) => c.number)).toEqual([1, 2, 3]);
+    expect(detail.chapters.every((c) => c.sourceKey === "mangadex")).toBe(true);
+    expect(detail.sources.find((s) => s.sourceKey === "suwayomi:7")!.lang).toBe("es");
+  });
+
+  it("switches language keeping read progress by chapter number", async () => {
+    const { library } = setupLangs();
+    const id = await library.open("mangadex", "md-1");
+    await library.linkSource(id, "suwayomi:7", "9");
+    library.markRead(id, [1, 2], true);
+
+    library.setLang(id, "es");
+    const detail = library.detailFromDb(id)!;
+    expect(detail.chapters.map((c) => c.number)).toEqual([1, 2, 3, 4, 5]);
+    expect(detail.chapters.filter((c) => c.read).map((c) => c.number)).toEqual([1, 2]);
+    expect(detail.unreadCount).toBe(3);
+    // Fallback candidates stay within the series' language.
+    const ch3 = detail.chapters.find((c) => c.number === 3)!;
+    expect(library.chapterCandidates(ch3.id).map((c) => c.sourceName)).toEqual(["LeerCapitulo"]);
+  });
+
+  it("refuses a language with no linked source", async () => {
+    const { library } = setupLangs();
+    const id = await library.open("mangadex", "md-1");
+    expect(() => library.setLang(id, "fr")).toThrow(/No hay fuentes/);
+  });
+});

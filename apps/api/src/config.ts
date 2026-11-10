@@ -31,6 +31,11 @@ export const config = {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean),
+  /** Languages of Suwayomi sources to use (comma-separated Suwayomi codes). */
+  suwayomiLangs: (process.env.SUWAYOMI_LANGS ?? "en,es")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
   updateIntervalMin: int("UPDATE_INTERVAL_MIN", 180),
   vapid: {
     publicKey: process.env.VAPID_PUBLIC_KEY ?? "",

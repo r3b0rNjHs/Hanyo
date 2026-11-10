@@ -21,7 +21,22 @@
   let sourcesBusy = $state<string | null>(null);
   let sourcesMsg = $state<string | null>(null);
   /** Linked sources, preferred first (lower priority value wins for duplicated chapter numbers). */
-  const linked = $derived(s ? [...s.sources].sort((a, b) => a.priority - b.priority || a.id - b.id) : []);
+  const linked = $derived(
+    s ? [...s.sources].sort((a, b) => Number(b.lang === s!.lang) - Number(a.lang === s!.lang) || a.priority - b.priority || a.id - b.id) : [],
+  );
+
+  const langNames: Record<string, string> = { en: "Inglés", es: "Español" };
+  let langBusy = $state(false);
+
+  async function switchLang(lang: string) {
+    if (!s || s.lang === lang) return;
+    langBusy = true;
+    try {
+      s = await api.setLang(s.id, lang);
+    } finally {
+      langBusy = false;
+    }
+  }
 
   async function makePreferred(linkId: number) {
     if (!s) return;
@@ -194,6 +209,20 @@
       </div>
     </div>
 
+    {#if s.availableLangs.length > 1}
+      <div class="mt-3 grid gap-1 rounded-full bg-surface p-1" style="grid-template-columns: repeat({s.availableLangs.length}, minmax(0, 1fr))" role="radiogroup" aria-label="Idioma de lectura">
+        {#each s.availableLangs as l (l)}
+          <button
+            role="radio"
+            aria-checked={s.lang === l}
+            disabled={langBusy || offline}
+            onclick={() => switchLang(l)}
+            class="h-9 rounded-full text-[13px] font-semibold {s.lang === l ? 'bg-accent text-on-accent' : 'text-soft'}"
+          >{langNames[l] ?? l.toUpperCase()}</button>
+        {/each}
+      </div>
+    {/if}
+
     <div class="mt-4 flex gap-2.5">
       {#if readTarget}
         <a href="/read/{readTarget.id}" class="flex h-[54px] flex-1 items-center justify-center gap-2 rounded-full bg-accent text-[15px] font-bold text-on-accent">
@@ -328,9 +357,10 @@
         <li class="rounded-[var(--radius-card)] bg-surface p-3.5">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
-              <p class="flex items-center gap-2 font-semibold">
+              <p class="flex items-center gap-2 font-semibold {src.lang === s.lang ? '' : 'text-muted'}">
                 {src.sourceName}
-                {#if i === 0}<span class="rounded-full bg-accent px-2 py-0.5 text-[11px] font-bold text-on-accent">Preferida</span>{/if}
+                <span class="rounded-full bg-raised px-1.5 py-0.5 text-[10px] font-bold text-muted uppercase">{src.lang}</span>
+                {#if i === 0 && src.lang === s.lang}<span class="rounded-full bg-accent px-2 py-0.5 text-[11px] font-bold text-on-accent">Preferida</span>{/if}
               </p>
               <p class="mt-0.5 text-xs text-muted">
                 {src.chapterCount} capítulos{src.latestChapter !== null ? ` · hasta el ${src.latestChapter}` : ""}
@@ -341,7 +371,7 @@
             {/if}
           </div>
           <div class="mt-3 flex gap-2">
-            {#if i !== 0}
+            {#if i !== 0 && src.lang === s.lang}
               <button class="h-9 rounded-full bg-raised px-3.5 text-[13px] font-semibold disabled:opacity-40" disabled={sourcesBusy !== null || offline} onclick={() => makePreferred(src.id)}>
                 {sourcesBusy === `pref-${src.id}` ? "…" : "Hacer preferida"}
               </button>
