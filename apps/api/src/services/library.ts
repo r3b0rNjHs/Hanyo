@@ -417,6 +417,18 @@ export class LibraryService {
     return { title: row.title, genres: JSON.parse(row.genres) as string[], resume: this.resume(seriesId) };
   }
 
+  /** Fingerprint of the source set a series was last searched against (see UpdateService.relinkLibrary). */
+  linkedAgainst(seriesId: number): string | null {
+    return (
+      this.db.prepare<[number], { linked_against: string | null }>("SELECT linked_against FROM series WHERE id = ?").get(seriesId)
+        ?.linked_against ?? null
+    );
+  }
+
+  setLinkedAgainst(seriesId: number, fingerprint: string): void {
+    this.db.prepare("UPDATE series SET linked_against = ? WHERE id = ?").run(fingerprint, seriesId);
+  }
+
   title(seriesId: number): string | null {
     return this.row(seriesId)?.title ?? null;
   }

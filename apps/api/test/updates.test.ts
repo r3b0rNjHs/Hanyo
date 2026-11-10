@@ -1,0 +1,105 @@
+import type { SourceInfo, TitleCluster } from "@hanyo/types";
+import { describe, expect, it } from "vitest";
+import { openMemoryDb } from "../src/db/index.js";
+import { ProviderRegistry } from "../src/providers/registry.js";
+import type { Provider, RawSeries } from "../src/providers/types.js";
+import type { AniListTitles } from "../src/services/anilist.js";
+import { LibraryService } from "../src/services/library.js";
+import type { PageService } from "../src/services/pages.js";
+import type { PushService } from "../src/services/push.js";
+import { UpdateService } from "../src/services/updates.js";
+
+class Fake implements Provider {
+  searches = 0;
+  constructor(
+    readonly id: "mangadex" | "suwayomi",
+    public sources: SourceInfo[],
+    private readonly series: Record<string, RawSeries>,
+  ) {}
+  async listSources() {
+    return this.sources;
+  }
+  async search() {
+    this.searches++;
+    return Object.values(this.series).map((s) => ({ externalId: s.externalId, title: s.title, coverUrl: null }));
+  }
+  async getSeries(_s: string, id: string) {
+    return structuredClone(this.series[id]!);
+  }
+  async getPageUrls() {
+    return [];
+  }
+  async fetchImage() {
+    return { bytes: Buffer.alloc(0), contentType: "image/jpeg" };
+  }
+  allowsImageUrl() {
+    return true;
+  }
+}
+
+const raw = (title: string, externalId: string): RawSeries => ({
+  externalId,
+  title,
+  coverUrl: null,
+  description: null,
+  authors: [],
+  genres: [],
+  status: "ongoing",
+  url: null,
+  chapters: [{ externalId: `${externalId}-1`, number: 1, title: null, scanlator: null, publishedAt: null, sourceOrder: 0 }],
+});
+
+const src = (key: string, name: string): SourceInfo => ({
+  key,
+  provider: key === "mangadex" ? "mangadex" : "suwayomi",
+  sourceId: key.split(":").pop()!,
+  name,
+  lang: "en",
+  iconUrl: null,
+});
+
+function setup() {
+  const md = new Fake("mangadex", [src("mangadex", "MangaDex")], { a: raw("Return of the Mount Hua Sect", "a") });
+  const suwa = new Fake("suwayomi", [src("suwayomi:1", "Asura")], {
+    x: raw("Return of the Blossoming Blade", "x"),
+    y: raw("Return of the Iron-Blooded Hound", "y"),
+  });
+  const library = new LibraryService(openMemoryDb(), new ProviderRegistry([md, suwa]), (_k, u) => u);
+  const cluster: TitleCluster = {
+    id: 1,
+    title: "Return of the Blossoming Blade",
+    englishTitle: "Return of the Blossoming Blade",
+    titles: ["Return of the Blossoming Blade", "Return of the Mount Hua Sect", "Hwasan Gwihwan"],
+    popularity: 1000,
+    country: "KR",
+  };
+  const titles = { lookup: async () => [cluster] } as unknown as AniListTitles;
+  const updates = new UpdateService(library, new ProviderRegistry([md, suwa]), {} as PageService, {} as PushService, () => {}, titles);
+  return { library, updates, suwa };
+}
+
+describe("UpdateService.relinkLibrary", () => {
+  it("links library series to sources that know them under another name", async () => {
+    const { library, updates } = setup();
+    const id = await library.open("mangadex", "a");
+    library.setInLibrary(id, true);
+
+    expect(await updates.relinkLibrary()).toEqual({ checked: 1, linked: 1 });
+    const linked = library.detailFromDb(id)!.sources.map((s) => s.externalId);
+    expect(linked).toEqual(["a", "x"]);
+  });
+
+  it("skips series already matched against the same sources until they change", async () => {
+    const { library, updates, suwa } = setup();
+    const id = await library.open("mangadex", "a");
+    library.setInLibrary(id, true);
+    await updates.relinkLibrary();
+    const before = suwa.searches;
+
+    expect(await updates.relinkLibrary()).toEqual({ checked: 0, linked: 0 });
+    expect(suwa.searches).toBe(before);
+
+    suwa.sources = [...suwa.sources, src("suwayomi:2", "Toonily")];
+    expect((await updates.relinkLibrary()).checked).toBe(1);
+  });
+});
