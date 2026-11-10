@@ -433,10 +433,15 @@ export class LibraryService {
       .map((r) => r.id);
   }
 
-  seriesBasics(seriesId: number): { title: string; genres: string[]; resume: ResumePoint | null } {
+  seriesBasics(seriesId: number): { title: string; cover: string | null; genres: string[]; resume: ResumePoint | null } {
     const row = this.row(seriesId);
     if (!row) throw new Error("Series not found");
-    return { title: row.title, genres: JSON.parse(row.genres) as string[], resume: this.resume(seriesId) };
+    return {
+      title: row.title,
+      cover: row.cover_url,
+      genres: JSON.parse(row.genres) as string[],
+      resume: this.resume(seriesId),
+    };
   }
 
   /** Fingerprint of the source set a series was last searched against (see UpdateService.relinkLibrary). */

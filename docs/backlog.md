@@ -1,16 +1,15 @@
 # Backlog
 
-## Next (needs the VPS)
-- [ ] Run `deploy/setup.sh` on the VPS, DNS `hanyo.yoqze.com`, enable `DEPLOY_ENABLED`
-- [ ] Verify each Suwayomi source end-to-end (search → chapters → pages); tune `SUWAYOMI_SOURCES` order
-- [ ] Verify on iPhone: install, offline reading, push notifications, long-strip memory
+## Next (needs the VPS / iPhone)
+- [ ] Enable auto-deploy: secrets `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` + variable `DEPLOY_ENABLED=true`
+- [ ] Verify Explore on every Suwayomi source (some have no "latest" listing)
+- [ ] Verify on iPhone: offline reading, push notifications, long-strip memory, automatic downloads
 
 
 ## Product
 - [ ] Pinch-zoom in paged mode (@panzoom/panzoom)
 - [ ] Store page dimensions server-side so strip placeholders have exact size before load
 
-- [ ] Series covers in the reader's "next chapter" card (needs cover in the page list response)
 - [ ] Light theme variant of Pulso
 
 ## Tech

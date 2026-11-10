@@ -90,6 +90,7 @@ export class PageService {
       chapterId,
       seriesId: ctx.link.series_id,
       seriesTitle: basics.title,
+      seriesCover: basics.cover,
       genres: basics.genres,
       chapterNumber: ctx.chapter.number,
       chapterTitle: ctx.chapter.title,

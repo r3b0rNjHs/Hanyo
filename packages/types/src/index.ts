@@ -152,6 +152,7 @@ export interface ChapterPages {
   chapterId: number;
   seriesId: number;
   seriesTitle: string;
+  seriesCover: string | null;
   genres: string[];
   chapterNumber: number | null;
   chapterTitle: string | null;
