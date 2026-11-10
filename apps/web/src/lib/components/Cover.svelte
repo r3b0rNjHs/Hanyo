@@ -1,5 +1,10 @@
 <script lang="ts">
-  let { src, alt, class: cls = "" }: { src: string | null; alt: string; class?: string } = $props();
+  let {
+    src,
+    alt,
+    class: cls = "",
+    rounded = "rounded-[var(--radius-card)]",
+  }: { src: string | null; alt: string; class?: string; rounded?: string } = $props();
   let failed = $state(false);
   let retried = $state(false);
   let attempt = $state(0);
@@ -15,7 +20,7 @@
   }
 </script>
 
-<div class="relative aspect-[2/3] overflow-hidden rounded-xl bg-ink-800 {cls}">
+<div class="relative aspect-[3/4] overflow-hidden bg-raised {rounded} {cls}">
   {#if src && !failed}
     <img
       src={attempt ? `${src}${src.includes("?") ? "&" : "?"}r=${attempt}` : src}
@@ -26,8 +31,9 @@
       onerror={onError}
     />
   {:else}
-    <div class="flex h-full w-full items-center justify-center p-3 text-center text-xs font-medium text-ink-400">
-      {alt}
+    <!-- Typographic placeholder, as in the design: the title set big on a solid block. -->
+    <div class="flex h-full w-full items-end bg-accent/25 p-3">
+      <span class="font-display line-clamp-3 text-lg leading-[0.95] font-bold tracking-tight text-fg uppercase">{alt}</span>
     </div>
   {/if}
 </div>
