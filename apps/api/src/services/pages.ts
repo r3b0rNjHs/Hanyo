@@ -22,10 +22,34 @@ export class PageService {
     private readonly quality = 90,
   ) {}
 
+  /**
+   * Page list for a chapter, from the first source that can actually deliver its images.
+   *
+   * Some image hosts block the server (e.g. Weeb Central's CDN rejects OVH IPs through
+   * Cloudflare) even though the chapter list loads fine. So before answering we fetch the
+   * first page (it is cached, the reader needs it anyway); if that fails we try the same
+   * chapter number on the series' other sources. The returned `chapterId` is the one that
+   * worked; progress is stored by chapter number, so switching is invisible to the reader.
+   */
   async chapterPages(chapterId: number): Promise<ChapterPages | null> {
-    const ctx = this.library.chapterContext(chapterId);
-    if (!ctx) return null;
-    const urls = await this.upstreamUrls(chapterId);
+    const candidates = this.library.chapterCandidates(chapterId);
+    if (candidates.length === 0) return null;
+    const failures: string[] = [];
+    for (const c of candidates) {
+      try {
+        const urls = await this.upstreamUrls(c.id);
+        if (urls.length === 0) throw new Error("no devolvió páginas");
+        await this.original(c.id, 0);
+        return this.build(c.id, urls);
+      } catch (e) {
+        failures.push(`${c.sourceName}: ${describe(e)}`);
+      }
+    }
+    throw new SourceUnavailableError(failures);
+  }
+
+  private build(chapterId: number, urls: string[]): ChapterPages {
+    const ctx = this.library.chapterContext(chapterId)!;
     const basics = this.library.seriesBasics(ctx.link.series_id);
     return {
       chapterId,
@@ -155,3 +179,21 @@ export class PageService {
 }
 
 class PageNotFound extends Error {}
+
+/** No source could deliver a chapter's images. The message is shown in the reader. */
+export class SourceUnavailableError extends Error {
+  constructor(readonly failures: string[]) {
+    super(
+      failures.length === 1
+        ? `${failures[0]!.split(":")[0]} no deja descargar las imágenes de este capítulo desde el servidor.`
+        : "Ninguna fuente deja descargar las imágenes de este capítulo desde el servidor.",
+    );
+  }
+}
+
+function describe(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  if (/Cloudflare|HTTP error 5\d\d| -> 5\d\d/i.test(msg)) return "bloqueada (Cloudflare)";
+  if (/timeout|aborted/i.test(msg)) return "no respondió a tiempo";
+  return msg.split("\n")[0]!.slice(0, 160);
+}

@@ -325,6 +325,25 @@ export class LibraryService {
     };
   }
 
+  /**
+   * The chapter itself followed by the same chapter number on the series' other sources,
+   * preferred sources first: what to try when a source can't deliver a chapter's pages.
+   */
+  chapterCandidates(chapterId: number): Array<{ id: number; sourceName: string }> {
+    const ctx = this.chapterContext(chapterId);
+    if (!ctx) return [];
+    const self = { id: chapterId, sourceName: ctx.link.source_name };
+    if (ctx.chapter.number === null) return [self];
+    const others = this.db
+      .prepare<[number, number, number], { id: number; source_name: string }>(
+        `SELECT c.id, s.source_name FROM chapters c JOIN series_sources s ON s.id = c.series_source_id
+         WHERE s.series_id = ? AND c.number = ? AND c.id != ?
+         ORDER BY s.priority, c.published_at DESC`,
+      )
+      .all(ctx.link.series_id, ctx.chapter.number, chapterId);
+    return [self, ...others.map((o) => ({ id: o.id, sourceName: o.source_name }))];
+  }
+
   saveProgress(chapterId: number, page: number, completed: boolean): void {
     const ctx = this.chapterContext(chapterId);
     if (!ctx) throw new Error("Chapter not found");
