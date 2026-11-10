@@ -27,7 +27,25 @@ export interface SearchHit {
   sourceName: string;
   externalId: string;
   title: string;
+  /** Other names the source knows (MangaDex gives many); used to merge the same series across sources. */
+  altTitles?: string[];
   coverUrl: string | null;
+}
+
+/** One series as known by AniList: every name it goes by, plus popularity for ranking. */
+export interface TitleCluster {
+  id: number;
+  /** Main title (English when available, else romanized). */
+  title: string;
+  /** Official English title, if AniList has one. */
+  englishTitle: string | null;
+  titles: string[];
+  popularity: number;
+  country: string | null;
+}
+
+export interface SearchMetaResponse {
+  clusters: TitleCluster[];
 }
 
 export interface SearchResponse {

@@ -72,6 +72,7 @@ export class MangaDexProvider implements Provider {
     return res.data.map((m) => ({
       externalId: m.id,
       title: pickTitle(m),
+      altTitles: altTitles(m),
       coverUrl: coverUrl(m),
     }));
   }
@@ -200,6 +201,12 @@ function pickTitle(m: MdManga): string {
   const t = m.attributes.title;
   const alt = m.attributes.altTitles.find((a) => a.en)?.en;
   return t.en ?? alt ?? Object.values(t)[0] ?? "Untitled";
+}
+
+/** Latin-script names only (English, romanized): the ones other sources use. */
+function altTitles(m: MdManga): string[] {
+  const all = [...Object.values(m.attributes.title), ...m.attributes.altTitles.flatMap((a) => Object.values(a))];
+  return [...new Set(all.filter((t) => /^[\p{Script=Latin}\p{N}\p{P}\p{S}\s]+$/u.test(t)))].slice(0, 20);
 }
 
 function coverUrl(m: MdManga, size: 256 | 512 = 256): string | null {
