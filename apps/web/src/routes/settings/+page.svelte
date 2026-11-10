@@ -56,6 +56,17 @@
     return Uint8Array.from(raw, (c) => c.charCodeAt(0));
   }
 
+  let relinkMsg = $state<string | null>(null);
+  async function relink() {
+    relinkMsg = "Buscando…";
+    try {
+      const r = await api.relinkLibrary();
+      relinkMsg = `Buscando fuentes para ${r.series} series en segundo plano. Tardará unos minutos.`;
+    } catch (e) {
+      relinkMsg = (e as Error).message;
+    }
+  }
+
   async function logout() {
     await api.logout().catch(() => null);
     await goto("/login");
@@ -125,6 +136,19 @@
       {#if push === "disabled-server"}<p class="mt-2 text-xs text-muted">El servidor no tiene las notificaciones configuradas.</p>{/if}
       {#if push === "denied"}<p class="mt-2 text-xs text-muted">Permiso denegado. Actívalo en Ajustes de iOS → Notificaciones → Hanyo.</p>{/if}
       {#if pushMsg}<p class="mt-2 text-xs text-danger">{pushMsg}</p>{/if}
+    </div>
+  </section>
+
+  <section>
+    <h2 class="mb-2 px-1 text-xs font-semibold tracking-[0.08em] text-muted uppercase">Biblioteca</h2>
+    <div class="rounded-[var(--radius-card)] bg-surface px-4 py-3">
+      <div class="flex items-center justify-between gap-3">
+        <span>Buscar fuentes nuevas</span>
+        <button class="h-9 rounded-full bg-raised px-4 text-sm font-semibold" onclick={relink}>Buscar</button>
+      </div>
+      <p class="mt-2 text-xs text-muted">
+        {relinkMsg ?? "Vincula cada serie de tu biblioteca con todas las fuentes disponibles. También se hace solo tras cada actualización."}
+      </p>
     </div>
   </section>
 
