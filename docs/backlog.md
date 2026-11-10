@@ -5,7 +5,6 @@
 - [ ] Verify each Suwayomi source end-to-end (search → chapters → pages); tune `SUWAYOMI_SOURCES` order
 - [ ] Verify on iPhone: install, offline reading, push notifications, long-strip memory
 
-- [ ] Enable WARP on the VPS (`docs/deploy.md`), test `warp-sources.txt`, add Weeb Central/Comix if they pass
 
 ## Product
 - [ ] "Download new chapters automatically" per series (on app open, since iOS has no background fetch)
