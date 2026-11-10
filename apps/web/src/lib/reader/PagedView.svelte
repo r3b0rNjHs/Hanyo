@@ -37,7 +37,12 @@
     for (let i = index + 1; i <= index + 4 && i < pages.length; i++) {
       if (warmed.has(i)) continue;
       warmed.add(i);
-      void fetch(pages[i]!, { credentials: "same-origin" }).catch(() => warmed.delete(i));
+      // Direct pages (source's own CDN) have no CORS: warm them as opaque requests.
+      const url = pages[i]!;
+      const init: RequestInit = url.startsWith("/")
+        ? { credentials: "same-origin" }
+        : { mode: "no-cors", referrerPolicy: "no-referrer" };
+      void fetch(url, init).catch(() => warmed.delete(i));
     }
   });
 
@@ -109,6 +114,7 @@
         {src}
         alt="Página {i + 1}"
         decoding="async"
+        referrerpolicy="no-referrer"
         draggable="false"
         class="absolute inset-0 h-full w-full object-contain {i === index ? '' : 'invisible'}"
         onload={(e) => {

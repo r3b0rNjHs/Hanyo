@@ -63,7 +63,7 @@
           <Cover src={g.cover} alt={g.title} class="w-12 shrink-0" rounded="rounded-[12px]" />
           <div class="min-w-0 flex-1">
             <p class="font-display truncate font-semibold">{g.title}</p>
-            <p class="text-xs text-muted">{g.chapters.length} capítulos · {formatBytes(g.bytes)}</p>
+            <p class="text-xs text-muted">{g.chapters.length} capítulos{g.bytes ? ` · ${formatBytes(g.bytes)}` : ""}</p>
           </div>
           <Icon name="back" size={18} class="text-faint transition-transform {open === g.seriesId ? 'rotate-90' : '-rotate-90'}" />
         </button>
@@ -72,7 +72,7 @@
             {#each g.chapters as c (c.chapterId)}
               <div class="flex items-center gap-2 border-b border-white/5 pl-4 last:border-0">
                 <a href="/read/{c.chapterId}" class="flex-1 py-2.5 text-sm">{chapterLabel(c.chapterNumber, c.chapterTitle)}</a>
-                <span class="text-xs text-faint">{formatBytes(c.bytes)}</span>
+                <span class="text-xs text-faint">{c.bytes ? formatBytes(c.bytes) : "directo"}</span>
                 <button class="flex h-10 w-10 items-center justify-center text-muted" onclick={() => downloads.remove([c.chapterId])} aria-label="Eliminar">
                   <Icon name="trash" size={17} />
                 </button>

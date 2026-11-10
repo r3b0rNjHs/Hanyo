@@ -116,6 +116,7 @@
           {src}
           alt="Página {i + 1}"
           decoding="async"
+          referrerpolicy="no-referrer"
           draggable="false"
           class="block h-full w-full"
           onload={(e) => onLoad(i, e.currentTarget as HTMLImageElement)}
