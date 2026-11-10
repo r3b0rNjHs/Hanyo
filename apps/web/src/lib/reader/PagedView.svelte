@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
 
   /**
    * One page per screen (manga). Tap zones: left/right thirds turn pages, centre = menu.
@@ -28,7 +28,8 @@
     footer: Snippet;
   } = $props();
 
-  let index = $state(Math.min(initialPage, pages.length - 1));
+  // Keyed per chapter/mode by the parent: only the initial page matters.
+  let index = $state(untrack(() => Math.min(initialPage, pages.length - 1)));
   const atEnd = $derived(index >= pages.length);
   const warmed = new Set<number>();
 

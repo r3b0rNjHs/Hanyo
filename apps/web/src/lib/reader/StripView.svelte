@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import { onMount, tick } from "svelte";
+  import { onMount, tick, untrack } from "svelte";
 
   /**
    * Long-strip (webtoon) reader.
@@ -32,8 +32,10 @@
   const AHEAD = 6;
   const DEFAULT_RATIO = 1.45;
 
-  let ratios = $state<number[]>(pages.map(() => DEFAULT_RATIO));
-  let current = $state(initialPage);
+  // The reader is re-created (keyed) on every chapter or mode change, so only the
+  // initial props matter here; untrack makes that explicit.
+  let ratios = $state<number[]>(untrack(() => pages.map(() => DEFAULT_RATIO)));
+  let current = $state(untrack(() => initialPage));
   let slots: HTMLDivElement[] = $state([]);
   let endSentinel: HTMLDivElement;
 
