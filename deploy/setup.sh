@@ -88,7 +88,8 @@ say "[8/8] Caddy ($DOMAIN)"
 sudo mkdir -p /etc/caddy/sites-enabled
 sudo sed "s/hanyo.yoqze.com/$DOMAIN/" "$APP_DIR/deploy/hanyo.caddy" | sudo tee /etc/caddy/sites-enabled/hanyo.caddy.new >/dev/null
 # Validate on a copy first: the live Caddyfile (with the yoqze auth hashes) only changes if valid.
-CANDIDATE=$(mktemp)
+# Created by root: Ubuntu's fs.protected_regular stops root from writing to another user's file in /tmp.
+CANDIDATE=$(sudo mktemp)
 sudo cp /etc/caddy/Caddyfile "$CANDIDATE"
 if ! sudo grep -q "sites-enabled" "$CANDIDATE"; then
   printf '\n# Extra sites (hanyo, ...)\nimport /etc/caddy/sites-enabled/*.caddy\n' | sudo tee -a "$CANDIDATE" >/dev/null
@@ -100,6 +101,7 @@ if ! sudo caddy validate --config "$CANDIDATE" --adapter caddyfile; then
 fi
 sudo cp /etc/caddy/Caddyfile "/etc/caddy/Caddyfile.bak.$(date +%s)"
 sudo install -m 644 "$CANDIDATE" /etc/caddy/Caddyfile
+sudo rm -f "$CANDIDATE"
 sudo systemctl reload caddy
 
 # Daily SQLite backup (03:30 UTC, 7 days)
