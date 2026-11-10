@@ -6,7 +6,8 @@
   import Icon from "$lib/components/Icon.svelte";
   import Spinner from "$lib/components/Spinner.svelte";
   import { downloads } from "$lib/offline/downloads.svelte";
-  import { chapterLabel, relativeDate, statusLabel } from "$lib/format";
+  import { chapterLabel, relativeDate, SHELVES, shelfLabel, statusLabel } from "$lib/format";
+  import type { Shelf } from "@hanyo/types";
 
   const id = $derived(Number(page.params.id));
   let s = $state<SeriesDetail | null>(null);
@@ -17,6 +18,7 @@
   let newestFirst = $state(true);
   let menuFor = $state<ChapterSummary | null>(null);
   let downloadMenu = $state(false);
+  let shelfMenu = $state(false);
   let sourcesOpen = $state(false);
   let sourcesBusy = $state<string | null>(null);
   let sourcesMsg = $state<string | null>(null);
@@ -122,11 +124,33 @@
     unknown: "bg-faint",
   };
 
-  async function toggleLibrary() {
+  /** Not in the library: add it ("Leyendo" once started, else "Pendiente"). In it: pick a list. */
+  async function libraryButton() {
     if (!s) return;
+    if (s.inLibrary) {
+      shelfMenu = true;
+      return;
+    }
+    await setShelf(s.lastReadChapter !== null ? "reading" : "plan");
+  }
+
+  async function setShelf(shelf: Shelf) {
+    if (!s) return;
+    shelfMenu = false;
     busy = true;
     try {
-      s = await api.setInLibrary(s.id, !s.inLibrary);
+      s = await api.setShelf(s.id, shelf);
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function removeFromLibrary() {
+    if (!s) return;
+    shelfMenu = false;
+    busy = true;
+    try {
+      s = await api.setInLibrary(s.id, false);
     } finally {
       busy = false;
     }
@@ -230,14 +254,14 @@
         </a>
       {/if}
       <button
-        onclick={toggleLibrary}
+        onclick={libraryButton}
         disabled={busy || offline}
-        aria-label={s.inLibrary ? "Quitar de la biblioteca" : "Añadir a la biblioteca"}
-        aria-pressed={s.inLibrary}
-        class="flex h-[54px] items-center justify-center gap-2 rounded-full bg-raised font-bold {s.inLibrary ? 'w-[54px] text-accent-soft' : readTarget ? 'px-5 text-fg' : 'flex-1 text-fg'}"
+        aria-label={s.inLibrary ? `Lista: ${shelfLabel(s.shelf)}` : "Añadir a la biblioteca"}
+        aria-haspopup={s.inLibrary ? "dialog" : undefined}
+        class="flex h-[54px] items-center justify-center gap-2 rounded-full bg-raised font-bold {readTarget ? 'px-5' : 'flex-1'} {s.inLibrary ? 'text-accent-soft' : 'text-fg'}"
       >
-        <Icon name="bookmark" size={22} filled={s.inLibrary} stroke={2} />
-        {#if !s.inLibrary}<span class="text-[15px]">Añadir</span>{/if}
+        <Icon name="bookmark" size={20} filled={s.inLibrary} stroke={2} />
+        <span class="text-[15px]">{s.inLibrary ? shelfLabel(s.shelf) : "Añadir"}</span>
       </button>
       <button onclick={() => (downloadMenu = true)} aria-label="Descargar capítulos" class="flex h-[54px] w-[54px] items-center justify-center rounded-full bg-raised text-fg">
         <Icon name="download" size={22} stroke={2} />
@@ -331,6 +355,23 @@
     {/if}
     <button class="sheet-btn" onclick={() => setRead(c, true, true)}>Marcar este y anteriores como leídos</button>
     <button class="sheet-btn mt-1 text-muted" onclick={() => (menuFor = null)}>Cancelar</button>
+  </div>
+{/if}
+
+{#if shelfMenu && s}
+  <button class="fixed inset-0 z-40 bg-black/60" onclick={() => (shelfMenu = false)} aria-label="Cerrar"></button>
+  <div class="pb-safe fixed inset-x-0 bottom-0 z-50 rounded-t-[28px] bg-raised p-3" role="dialog" aria-label="Lista de lectura">
+    <p class="font-display px-3 pt-2 pb-3 text-lg font-semibold">Lista de lectura</p>
+    {#each SHELVES as [key, label] (key)}
+      <button class="sheet-btn {s.shelf === key ? 'text-accent-soft' : ''}" aria-pressed={s.shelf === key} onclick={() => setShelf(key)}>
+        <span class="flex items-center justify-between">
+          {label}
+          {#if s.shelf === key}<Icon name="check" size={18} stroke={2.6} />{/if}
+        </span>
+      </button>
+    {/each}
+    <button class="sheet-btn mt-1 text-danger" onclick={removeFromLibrary}>Quitar de la biblioteca</button>
+    <button class="sheet-btn text-muted" onclick={() => (shelfMenu = false)}>Cancelar</button>
   </div>
 {/if}
 
