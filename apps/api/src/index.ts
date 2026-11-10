@@ -8,6 +8,7 @@ import { AniListTitles } from "./services/anilist.js";
 import { config } from "./config.js";
 import { openDb } from "./db/index.js";
 import { Signer } from "./lib/signing.js";
+import { DemoProvider } from "./providers/demo.js";
 import { MangaDexProvider } from "./providers/mangadex.js";
 import { ProviderRegistry } from "./providers/registry.js";
 import { SuwayomiProvider } from "./providers/suwayomi.js";
@@ -19,10 +20,15 @@ import { UpdateService } from "./services/updates.js";
 
 const db = openDb(config.dataDir);
 const signer = new Signer(config.sessionSecret);
-const registry = new ProviderRegistry([
-  new MangaDexProvider(config.userAgent),
-  new SuwayomiProvider(config.suwayomiUrl, config.suwayomiSources, config.suwayomiLangs),
-]);
+// HANYO_DEMO_SOURCE=1: a single offline source with generated pages (end-to-end tests).
+const registry = new ProviderRegistry(
+  process.env.HANYO_DEMO_SOURCE === "1"
+    ? [new DemoProvider()]
+    : [
+        new MangaDexProvider(config.userAgent),
+        new SuwayomiProvider(config.suwayomiUrl, config.suwayomiSources, config.suwayomiLangs),
+      ],
+);
 const cache = new ImageCache(path.join(config.dataDir, "cache"), config.imageCacheMaxBytes);
 const library = new LibraryService(db, registry, (key, url) => wrapImage(signer, key, url));
 const pages = new PageService(library, registry, cache, config.imageQuality);
