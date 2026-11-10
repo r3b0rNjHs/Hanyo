@@ -91,6 +91,10 @@ const MIGRATIONS: string[] = [
   UPDATE series SET shelf = 'plan'
     WHERE id NOT IN (SELECT series_id FROM read_marks) AND id NOT IN (SELECT series_id FROM resume_points);
   `,
+  // v5: per-series automatic download of new chapters (done by the app, which owns the storage).
+  `
+  ALTER TABLE series ADD COLUMN auto_download INTEGER NOT NULL DEFAULT 0;
+  `,
 ];
 
 export function openDb(dataDir: string): DB {

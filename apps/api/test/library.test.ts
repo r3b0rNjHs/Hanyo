@@ -159,6 +159,14 @@ describe("LibraryService", () => {
     expect(library.detailFromDb(id)!.shelf).toBe("completed");
   });
 
+  it("stores the automatic download flag per series", async () => {
+    const { library } = setup();
+    const id = await library.open("mangadex", "md-1");
+    expect(library.detailFromDb(id)!.autoDownload).toBe(false);
+    library.setAutoDownload(id, true);
+    expect(library.detailFromDb(id)!.autoDownload).toBe(true);
+  });
+
   it("re-opening the same source entry reuses the series", async () => {
     const { library } = setup();
     const a = await library.open("mangadex", "md-1");

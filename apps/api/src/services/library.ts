@@ -26,6 +26,7 @@ interface SeriesRow {
   updated_at: number;
   lang: string;
   shelf: Shelf;
+  auto_download: number;
 }
 
 /** "es-419" → "es"; multi-language ("all") sources are read as English. */
@@ -205,6 +206,10 @@ export class LibraryService {
   setShelf(seriesId: number, shelf: Shelf): void {
     this.setInLibrary(seriesId, true);
     this.db.prepare("UPDATE series SET shelf = ? WHERE id = ?").run(shelf, seriesId);
+  }
+
+  setAutoDownload(seriesId: number, enabled: boolean): void {
+    this.db.prepare("UPDATE series SET auto_download = ? WHERE id = ?").run(enabled ? 1 : 0, seriesId);
   }
 
   listLibrary(): SeriesSummary[] {
@@ -468,6 +473,7 @@ export class LibraryService {
       status: row.status,
       inLibrary: row.in_library === 1,
       shelf: row.shelf,
+      autoDownload: row.auto_download === 1,
       unreadCount: numbered.filter((c) => !c.read).length,
       latestChapter: numbered.length ? numbered[numbered.length - 1]!.number : null,
       lastReadChapter: lastRead,
