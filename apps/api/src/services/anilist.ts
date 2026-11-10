@@ -1,4 +1,4 @@
-import type { TitleCluster } from "@hanyo/types";
+import type { TitleCluster, TrendingOrigin, TrendingResponse } from "@hanyo/types";
 import { RateLimiter } from "../lib/ratelimit.js";
 
 const ENDPOINT = "https://graphql.anilist.co";
@@ -12,12 +12,25 @@ const QUERY = `query ($search: String) {
   }
 }`;
 
+const TRENDING = `query ($page: Int, $country: CountryCode) {
+  Page(page: $page, perPage: 30) {
+    pageInfo { hasNextPage }
+    media(type: MANGA, sort: TRENDING_DESC, countryOfOrigin: $country) {
+      id countryOfOrigin popularity
+      title { romaji english native }
+      synonyms
+      coverImage { large }
+    }
+  }
+}`;
+
 interface Media {
   id: number;
   countryOfOrigin: string | null;
   popularity: number | null;
   title: { romaji: string | null; english: string | null; native: string | null };
   synonyms: string[];
+  coverImage?: { large: string | null };
 }
 
 /**
@@ -35,6 +48,33 @@ export class AniListTitles {
     private readonly fetchImpl: typeof fetch = fetch,
     private readonly ttlMs = 24 * 3600_000,
   ) {}
+
+  private readonly trendingCache = new Map<string, { at: number; value: TrendingResponse }>();
+
+  /** AniList "trending" (recent activity), optionally by country of origin. Cached 30 min. */
+  async trending(origin: TrendingOrigin, page: number): Promise<TrendingResponse> {
+    const key = `${origin}|${page}`;
+    const hit = this.trendingCache.get(key);
+    if (hit && Date.now() - hit.at < 30 * 60_000) return hit.value;
+    const res = await this.limiter.schedule(() =>
+      this.fetchImpl(ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ query: TRENDING, variables: { page, ...(origin === "all" ? {} : { country: origin }) } }),
+        signal: AbortSignal.timeout(8000),
+      }),
+    );
+    if (!res.ok) throw new Error(`AniList ${res.status}`);
+    const json = (await res.json()) as { data?: { Page?: { pageInfo?: { hasNextPage?: boolean }; media?: Media[] } } };
+    const value: TrendingResponse = {
+      page,
+      hasNextPage: Boolean(json.data?.Page?.pageInfo?.hasNextPage),
+      items: (json.data?.Page?.media ?? []).map((m) => ({ cluster: toCluster(m), coverUrl: m.coverImage?.large ?? null })),
+    };
+    if (this.trendingCache.size > 100) this.trendingCache.clear();
+    this.trendingCache.set(key, { at: Date.now(), value });
+    return value;
+  }
 
   async lookup(query: string): Promise<TitleCluster[]> {
     const key = query.trim().toLowerCase();

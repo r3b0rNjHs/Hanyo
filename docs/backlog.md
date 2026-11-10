@@ -8,7 +8,7 @@
 
 ## Product
 - [ ] "Download new chapters automatically" per series (on app open, since iOS has no background fetch)
-- [ ] Explore: filter MangaDex by origin (manhwa / manga / manhua) and genre
+- [ ] Explore: genre filter for Tendencias (AniList `genre_in`)
 - [ ] Pinch-zoom in paged mode (@panzoom/panzoom)
 - [ ] Store page dimensions server-side so strip placeholders have exact size before load
 - [ ] Resume within a tall page (store intra-page fraction, not just page index)

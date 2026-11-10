@@ -37,3 +37,36 @@ describe("AniListTitles", () => {
     expect(await limited.lookup("x")).toEqual([]);
   });
 });
+
+describe("AniListTitles.trending", () => {
+  it("maps trending media with covers and filters by country", async () => {
+    let sent: { variables: Record<string, unknown> } | null = null;
+    const fake = (async (_url: string, init: RequestInit) => {
+      sent = JSON.parse(String(init.body));
+      return new Response(
+        JSON.stringify({
+          data: {
+            Page: {
+              pageInfo: { hasNextPage: true },
+              media: [
+                {
+                  id: 1,
+                  countryOfOrigin: "KR",
+                  popularity: 9,
+                  title: { romaji: "Hwasan Gwihwan", english: "Return of the Blossoming Blade", native: null },
+                  synonyms: ["Return of the Mount Hua Sect"],
+                  coverImage: { large: "https://s4.anilist.co/c.jpg" },
+                },
+              ],
+            },
+          },
+        }),
+      );
+    }) as unknown as typeof fetch;
+    const r = await new AniListTitles(fake).trending("KR", 2);
+    expect(sent!.variables).toEqual({ page: 2, country: "KR" });
+    expect(r.hasNextPage).toBe(true);
+    expect(r.items[0]!.cluster.title).toBe("Return of the Blossoming Blade");
+    expect(r.items[0]!.coverUrl).toBe("https://s4.anilist.co/c.jpg");
+  });
+});
