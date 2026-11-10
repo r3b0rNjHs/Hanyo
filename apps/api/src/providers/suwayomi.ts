@@ -21,7 +21,8 @@ export class SuwayomiProvider implements Provider {
   constructor(
     private readonly baseUrl: string,
     private readonly allowedSourceIds: string[] = [],
-    private readonly lang = "en",
+    /** Source languages to offer (Suwayomi codes; "es" also matches "es-419"). */
+    private readonly langs: string[] = ["en", "es"],
     private readonly directSources: DirectImageSource[] = DIRECT_SOURCES,
   ) {}
 
@@ -33,8 +34,11 @@ export class SuwayomiProvider implements Provider {
     const value = data.sources.nodes
       // "0" is Suwayomi's Local source; MangaDex is handled natively by hanyo-api.
       .filter((s) => s.id !== "0" && s.name.toLowerCase() !== "mangadex")
-      .filter((s) => s.lang === this.lang || s.lang === "all")
+      .filter((s) => s.lang === "all" || this.langs.some((l) => s.lang === l || s.lang.startsWith(`${l}-`)))
       .filter((s) => this.allowedSourceIds.length === 0 || this.allowedSourceIds.includes(s.id))
+      // Some extensions publish the same site as "all" and per language (Manhwa18.cc): keep the
+      // language-specific one so search doesn't query the site twice.
+      .filter((s, _i, list) => s.lang !== "all" || !list.some((o) => o.name === s.name && o.lang !== "all"))
       .map<SourceInfo>((s) => ({
         key: `suwayomi:${s.id}`,
         provider: "suwayomi",
