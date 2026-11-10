@@ -20,6 +20,7 @@ _Last updated: 2026-11-09_
   library series re-link automatically when the source set changes (AniList alt titles help matching).
 - **Reading lists**: Leyendo / Pendiente / En pausa / Terminada, filters in the library; planned or paused
   series move to Leyendo when opened in the reader.
+- **Explore tab**: popular / latest per source and language, infinite scroll, cached 10 min server-side.
 
 ## Not yet verified on real hardware
 - iOS Safari standalone: push, wake lock, memory behaviour with long strips.
