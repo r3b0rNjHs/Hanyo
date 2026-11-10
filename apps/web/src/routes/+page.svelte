@@ -28,7 +28,28 @@
   const counts = $derived(Object.fromEntries(FILTERS.map(([f]) => [f, (items ?? []).filter((s) => matches(s, f)).length])));
   /** Empty lists stay hidden so the chip row stays short. */
   const shownFilters = $derived(FILTERS.filter(([f]) => f === "all" || f === "new" || f === filter || counts[f]! > 0));
-  const visible = $derived((items ?? []).filter((s) => matches(s, filter)));
+  type Sort = "updated" | "read" | "title";
+  let sort = $state<Sort>(
+    (() => {
+      try {
+        const v = localStorage.getItem("hanyo.library.sort");
+        return v === "read" || v === "title" ? v : "updated";
+      } catch {
+        return "updated";
+      }
+    })(),
+  );
+  $effect(() => {
+    try {
+      localStorage.setItem("hanyo.library.sort", sort);
+    } catch {}
+  });
+  const sorters: Record<Sort, (a: SeriesSummary, b: SeriesSummary) => number> = {
+    updated: (a, b) => b.updatedAt - a.updatedAt,
+    read: (a, b) => (b.lastReadAt ?? 0) - (a.lastReadAt ?? 0) || b.updatedAt - a.updatedAt,
+    title: (a, b) => a.title.localeCompare(b.title, "es", { sensitivity: "base" }),
+  };
+  const visible = $derived((items ?? []).filter((s) => matches(s, filter)).sort(sorters[sort]));
 
   function progress(s: SeriesSummary): number {
     if (!s.latestChapter || s.lastReadChapter === null) return 0;
@@ -153,6 +174,18 @@
     {/each}
   </div>
 
+  <div class="mt-3 flex justify-end px-5">
+    <label class="flex items-center gap-1.5 text-xs text-muted">
+      <Icon name="sliders" size={14} />
+      <span class="sr-only">Ordenar</span>
+      <select bind:value={sort} class="bg-transparent font-semibold text-soft" aria-label="Ordenar">
+        <option value="updated">Actualizadas</option>
+        <option value="read">Leídas recientemente</option>
+        <option value="title">Título A–Z</option>
+      </select>
+    </label>
+  </div>
+
   {#if visible.length === 0}
     <p class="px-6 py-16 text-center text-sm text-muted">
       {filter === "new"
@@ -162,7 +195,7 @@
           : "No hay series en esta lista."}
     </p>
   {:else}
-    <div class="mt-4 grid grid-cols-2 gap-x-3.5 gap-y-5 px-5">
+    <div class="mt-2 grid grid-cols-2 gap-x-3.5 gap-y-5 px-5">
       {#each visible as s (s.id)}
         <a href="/series/{s.id}" class="min-w-0">
           <div class="relative">
