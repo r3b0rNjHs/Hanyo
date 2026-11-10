@@ -24,7 +24,7 @@ const registry = new ProviderRegistry([
 ]);
 const cache = new ImageCache(path.join(config.dataDir, "cache"), config.imageCacheMaxBytes);
 const library = new LibraryService(db, registry, (key, url) => wrapImage(signer, key, url));
-const pages = new PageService(library, registry, cache);
+const pages = new PageService(library, registry, cache, config.imageQuality);
 const push = new PushService(db, config.vapid.publicKey, config.vapid.privateKey, config.vapid.subject);
 const updates = new UpdateService(library, registry, pages, push);
 

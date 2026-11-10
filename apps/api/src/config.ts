@@ -23,6 +23,8 @@ export const config = {
   password: str("HANYO_PASSWORD", isProd ? undefined : "hanyo"),
   sessionSecret: str("SESSION_SECRET", isProd ? undefined : "dev-secret-not-for-production"),
   dataDir: path.resolve(str("DATA_DIR", "./data")),
+  /** WebP/mozjpeg quality for re-encoded pages (visually lossless at 90). 0 keeps originals. */
+  imageQuality: int("IMAGE_QUALITY", 90),
   imageCacheMaxBytes: int("IMAGE_CACHE_MAX_MB", 8000) * 1024 * 1024,
   suwayomiUrl: str("SUWAYOMI_URL", "http://127.0.0.1:4567").replace(/\/$/, ""),
   suwayomiSources: (process.env.SUWAYOMI_SOURCES ?? "")

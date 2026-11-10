@@ -173,7 +173,9 @@ export function createApp(d: AppDeps): Hono {
   });
 
   app.get("/chapters/:id/pages/:n", async (c) => {
-    const img = await d.pages.page(intParam(c, "id"), intParam(c, "n"));
+    // Downloads ask for the compact (re-encoded) version; online reading never waits for it.
+    const compact = c.req.query("compact") === "1";
+    const img = await d.pages.page(intParam(c, "id"), intParam(c, "n"), { compact });
     if (!img) return c.json<ApiError>({ error: "Not found" }, 404);
     return imageResponse(img);
   });
