@@ -110,6 +110,8 @@ export interface SeriesSummary {
   /** First unread chapter that actually exists (sources often have gaps). */
   nextChapter: number | null;
   updatedAt: number;
+  /** When you last read it (progress saved), null if never. */
+  lastReadAt: number | null;
 }
 
 export interface SeriesDetail extends SeriesSummary {

@@ -530,6 +530,10 @@ export class LibraryService {
       lastReadChapter: lastRead,
       nextChapter: numbered.find((c) => !c.read && (lastRead === null || c.number! > lastRead))?.number ?? null,
       updatedAt: row.updated_at,
+      lastReadAt:
+        this.db
+          .prepare<[number], { t: number }>("SELECT updated_at AS t FROM resume_points WHERE series_id = ?")
+          .get(row.id)?.t ?? null,
     };
   }
 
