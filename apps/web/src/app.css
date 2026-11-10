@@ -25,21 +25,6 @@
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-display: "Space Grotesk Variable", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
 
-  /* Legacy names from the first UI, mapped onto Pulso while screens are migrated.
-     Removed once no screen uses them. */
-  --color-ink-950: var(--color-base);
-  --color-ink-900: var(--color-surface);
-  --color-ink-850: var(--color-surface);
-  --color-ink-800: var(--color-raised);
-  --color-ink-700: var(--color-line);
-  --color-ink-500: var(--color-faint);
-  --color-ink-400: var(--color-muted);
-  --color-ink-200: var(--color-soft);
-  --color-ink-100: var(--color-fg);
-  --color-hanji-300: var(--color-accent-soft);
-  --color-hanji-400: var(--color-accent);
-  --color-hanji-500: var(--color-accent);
-
   --radius-card: 20px;
   --radius-panel: 24px;
 }
@@ -126,4 +111,36 @@ select {
 }
 .sheet-btn:disabled {
   opacity: 0.4;
+}
+
+/* iOS-style switch for boolean settings (a real checkbox underneath). */
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 51px;
+  height: 31px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--color-line);
+  transition: background 0.2s;
+  cursor: pointer;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 999px;
+  background: var(--color-fg);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.35);
+  transition: transform 0.2s;
+}
+.switch:checked {
+  background: var(--color-accent);
+}
+.switch:checked::after {
+  transform: translateX(20px);
 }

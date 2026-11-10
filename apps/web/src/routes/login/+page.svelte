@@ -21,24 +21,23 @@
   }
 </script>
 
-<div class="pt-safe flex min-h-dvh flex-col items-center justify-center px-8">
-  <img src="/icons/icon.svg" alt="" class="h-20 w-20 rounded-[22px] shadow-2xl shadow-hanji-500/20" />
-  <h1 class="mt-5 text-3xl font-bold tracking-tight">Hanyo</h1>
-  <p class="mt-1 text-sm text-ink-400">Tu biblioteca de manhwa, manga y manhua</p>
+<div class="pt-safe flex min-h-dvh flex-col justify-center px-7">
+  <img src="/icons/icon.svg" alt="" class="h-20 w-20 rounded-[24px]" />
+  <h1 class="font-display mt-6 text-[40px] leading-none font-bold tracking-[-0.04em]">Hanyo</h1>
+  <p class="mt-2 text-[15px] text-muted">Tu biblioteca de manhwa, manga y manhua.</p>
 
-  <form class="mt-10 w-full max-w-xs space-y-3" onsubmit={submit}>
+  <form class="mt-10 w-full space-y-3" onsubmit={submit}>
+    <label for="password" class="sr-only">Contraseña</label>
     <input
+      id="password"
       type="password"
       bind:value={password}
       placeholder="Contraseña"
       autocomplete="current-password"
-      class="w-full rounded-xl border border-white/10 bg-ink-850 px-4 py-3.5 text-base outline-none placeholder:text-ink-500 focus:border-hanji-400/60"
+      class="h-14 w-full rounded-full bg-raised px-5 text-base outline-none placeholder:text-faint focus:ring-2 focus:ring-accent/60"
     />
-    {#if error}<p class="text-center text-sm text-red-400">{error}</p>{/if}
-    <button
-      disabled={busy || !password}
-      class="w-full rounded-xl bg-gradient-to-r from-hanji-300 to-hanji-500 py-3.5 font-semibold text-ink-950 disabled:opacity-50"
-    >
+    {#if error}<p class="px-2 text-sm text-danger" role="alert">{error}</p>{/if}
+    <button disabled={busy || !password} class="h-14 w-full rounded-full bg-accent text-base font-bold text-on-accent disabled:opacity-40">
       {busy ? "Entrando…" : "Entrar"}
     </button>
   </form>

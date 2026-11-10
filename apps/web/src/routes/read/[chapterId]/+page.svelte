@@ -159,8 +159,8 @@
 <div class="min-h-dvh" style="background: {backgroundColor[readerSettings.background]}">
   {#if error}
     <div class="pt-safe flex min-h-dvh flex-col items-center justify-center gap-4 px-8 text-center">
-      <p class="text-ink-200">{error}</p>
-      <button class="rounded-full bg-ink-800 px-4 py-2 text-sm" onclick={() => history.back()}>Volver</button>
+      <p class="text-soft">{error}</p>
+      <button class="h-11 rounded-full bg-raised px-5 text-sm font-semibold" onclick={() => history.back()}>Volver</button>
     </div>
   {:else if !data}
     <div class="flex min-h-dvh items-center justify-center"><Spinner size={28} /></div>
