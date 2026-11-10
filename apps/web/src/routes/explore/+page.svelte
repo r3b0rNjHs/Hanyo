@@ -17,6 +17,27 @@
   const TRENDING = "trending";
   let sourceKey = $state(TRENDING);
   let origin = $state<TrendingOrigin>("KR");
+  /** AniList genre names (sent as-is) with their Spanish label. */
+  const GENRES: [string, string][] = [
+    ["", "Todos"],
+    ["Action", "Acción"],
+    ["Fantasy", "Fantasía"],
+    ["Romance", "Romance"],
+    ["Drama", "Drama"],
+    ["Comedy", "Comedia"],
+    ["Adventure", "Aventura"],
+    ["Supernatural", "Sobrenatural"],
+    ["Psychological", "Psicológico"],
+    ["Mystery", "Misterio"],
+    ["Thriller", "Thriller"],
+    ["Horror", "Terror"],
+    ["Sci-Fi", "Ciencia ficción"],
+    ["Slice of Life", "Cotidiano"],
+    ["Sports", "Deportes"],
+    ["Ecchi", "Ecchi"],
+    ["Hentai", "Hentai"],
+  ];
+  let genre = $state("");
 
   /** A grid entry: either a source's own series, or an AniList title to look up on every source. */
   interface Item {
@@ -41,7 +62,7 @@
 
   function save() {
     try {
-      localStorage.setItem(STORE, JSON.stringify({ lang, kind, sourceKey, origin }));
+      localStorage.setItem(STORE, JSON.stringify({ lang, kind, sourceKey, origin, genre }));
     } catch {}
   }
 
@@ -64,7 +85,7 @@
       let items: Item[];
       let next: boolean;
       if (sourceKey === TRENDING) {
-        const r = await api.trending(origin, page + 1);
+        const r = await api.trending(origin, page + 1, genre || undefined);
         items = r.items.map((i) => ({ id: `al${i.cluster.id}`, title: i.cluster.title, coverUrl: i.coverUrl }));
         next = r.hasNextPage;
       } else {
@@ -113,6 +134,7 @@
       if (saved.kind) kind = saved.kind;
       if (saved.sourceKey) sourceKey = saved.sourceKey;
       if (saved.origin) origin = saved.origin;
+      if (typeof saved.genre === "string") genre = saved.genre;
     } catch {}
     api
       .sources()
@@ -171,6 +193,16 @@
           aria-checked={origin === o}
           onclick={() => { origin = o; reset(); }}
           class="h-9 rounded-full text-[13px] font-semibold {origin === o ? 'bg-accent text-on-accent' : 'text-soft'}"
+        >{label}</button>
+      {/each}
+    </div>
+    <div class="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5" role="radiogroup" aria-label="Género">
+      {#each GENRES as [g, label] (g)}
+        <button
+          role="radio"
+          aria-checked={genre === g}
+          onclick={() => { genre = g; reset(); }}
+          class="h-8 shrink-0 rounded-full px-3.5 text-[13px] font-semibold {genre === g ? 'bg-fg text-base' : 'bg-raised text-soft'}"
         >{label}</button>
       {/each}
     </div>
