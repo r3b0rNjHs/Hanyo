@@ -7,11 +7,9 @@
 
 
 ## Product
-- [ ] Pinch-zoom in paged mode (@panzoom/panzoom)
 
 - [ ] Light theme variant of Pulso
 
 ## Tech
-- [ ] Silence `state_referenced_locally` warnings in reader components (untrack)
 - [ ] E2E Playwright suite in CI using a fake provider
 - [ ] Server image cache metrics endpoint
