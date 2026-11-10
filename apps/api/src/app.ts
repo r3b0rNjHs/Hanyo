@@ -7,7 +7,7 @@ import type { Signer } from "./lib/signing.js";
 import type { AniListTitles } from "./services/anilist.js";
 import type { ProviderRegistry } from "./providers/registry.js";
 import type { LibraryService } from "./services/library.js";
-import type { PageService } from "./services/pages.js";
+import { SourceUnavailableError, type PageService } from "./services/pages.js";
 import type { PushService } from "./services/push.js";
 import type { UpdateService } from "./services/updates.js";
 
@@ -178,8 +178,16 @@ export function createApp(d: AppDeps): Hono {
 
   // ── Reading ──────────────────────────────────────────────────────────
   app.get("/chapters/:id/pages", async (c) => {
-    const res = await d.pages.chapterPages(intParam(c, "id"));
-    return res ? c.json(res) : c.json<ApiError>({ error: "Not found" }, 404);
+    try {
+      const res = await d.pages.chapterPages(intParam(c, "id"));
+      return res ? c.json(res) : c.json<ApiError>({ error: "Not found" }, 404);
+    } catch (e) {
+      if (e instanceof SourceUnavailableError) {
+        log(`pages unavailable for chapter ${c.req.param("id")}: ${e.failures.join(" | ")}`);
+        return c.json<ApiError>({ error: e.message }, 502);
+      }
+      throw e;
+    }
   });
 
   app.get("/chapters/:id/pages/:n", async (c) => {
