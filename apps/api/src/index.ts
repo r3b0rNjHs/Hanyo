@@ -17,6 +17,7 @@ import { LibraryService } from "./services/library.js";
 import { PageService } from "./services/pages.js";
 import { PushService } from "./services/push.js";
 import { UpdateService } from "./services/updates.js";
+import { SourceHealthService } from "./services/health.js";
 
 const db = openDb(config.dataDir);
 const signer = new Signer(config.sessionSecret);
@@ -35,6 +36,7 @@ const pages = new PageService(library, registry, cache, config.imageQuality);
 const push = new PushService(db, config.vapid.publicKey, config.vapid.privateKey, config.vapid.subject);
 const titles = new AniListTitles();
 const updates = new UpdateService(library, registry, pages, push, console.log, titles);
+const health = new SourceHealthService(db, registry, (p) => push.notify(p));
 
 const api = createApp({
   password: config.password,
@@ -47,6 +49,7 @@ const api = createApp({
   push,
   titles,
   cache,
+  health,
 });
 
 const root = new Hono();
@@ -61,6 +64,7 @@ if (webDir && fs.existsSync(webDir)) {
 }
 
 updates.start(config.updateIntervalMin);
+if (process.env.HANYO_DEMO_SOURCE !== "1") health.start();
 
 serve({ fetch: root.fetch, port: config.port, hostname: "127.0.0.1" }, (info) => {
   console.log(`hanyo-api listening on http://127.0.0.1:${info.port} (data: ${config.dataDir})`);

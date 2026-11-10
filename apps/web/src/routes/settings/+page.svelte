@@ -3,11 +3,13 @@
   import { goto } from "$app/navigation";
   import { api } from "$lib/api";
   import Icon from "$lib/components/Icon.svelte";
+  import Spinner from "$lib/components/Spinner.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import { readerSettings } from "$lib/reader/settings.svelte";
   import { formatBytes } from "$lib/format";
   import { currentTheme, setTheme, type Theme } from "$lib/theme";
-  import type { ServerStats } from "@hanyo/types";
+  import type { ServerStats, SourceHealth } from "@hanyo/types";
+  import { timeAgo } from "$lib/format";
 
   let standalone = $state(false);
   let push = $state<"unsupported" | "disabled-server" | "off" | "on" | "denied">("off");
@@ -61,6 +63,25 @@
 
   let theme = $state<Theme>(currentTheme());
   $effect(() => setTheme(theme));
+
+  let health = $state<SourceHealth[] | null>(null);
+  let checkingSources = $state(false);
+  let showAllSources = $state(false);
+  $effect(() => {
+    api.sourceHealth().then((h) => (health = h), () => (health = null));
+  });
+  async function checkSources() {
+    checkingSources = true;
+    try {
+      health = await api.checkSources();
+    } catch {
+      // keep the previous list
+    } finally {
+      checkingSources = false;
+    }
+  }
+  const broken = $derived((health ?? []).filter((h) => !h.ok));
+  const lastCheck = $derived(health?.length ? Math.max(...health.map((h) => h.checkedAt)) : null);
 
   let stats = $state<ServerStats | null>(null);
   $effect(() => {
@@ -182,6 +203,44 @@
       </p>
     </div>
   </section>
+
+  {#if health}
+    <section>
+      <h2 class="mb-2 px-1 text-xs font-semibold tracking-[0.08em] text-muted uppercase">Fuentes</h2>
+      <div class="rounded-[var(--radius-card)] bg-surface text-sm">
+        <div class="flex items-center justify-between gap-3 px-4 py-3">
+          <span class="min-w-0">
+            <span class="flex items-center gap-2 font-semibold">
+              <span class="h-2 w-2 rounded-full {broken.length ? 'bg-danger' : health.length ? 'bg-ok' : 'bg-faint'}"></span>
+              {#if !health.length}Sin comprobar{:else if broken.length}{broken.length} {broken.length === 1 ? "fuente no funciona" : "fuentes no funcionan"}{:else}Todas funcionan ({health.length}){/if}
+            </span>
+            <span class="block text-xs text-muted">
+              {lastCheck ? `Comprobado ${timeAgo(lastCheck)} · ` : ""}se revisan solas cada día y te avisamos si alguna falla
+            </span>
+          </span>
+          <button class="h-9 shrink-0 rounded-full bg-raised px-4 text-sm font-semibold" disabled={checkingSources} onclick={checkSources}>
+            {#if checkingSources}<Spinner size={16} />{:else}Comprobar{/if}
+          </button>
+        </div>
+        {#if health.length}
+          <ul class="divide-y divide-fg/5 border-t border-fg/5">
+            {#each showAllSources ? health : broken as h (h.sourceKey)}
+              <li class="flex items-center gap-3 px-4 py-2.5">
+                <span class="h-2 w-2 shrink-0 rounded-full {h.ok ? 'bg-ok' : 'bg-danger'}"></span>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate">{h.name} <span class="text-xs text-faint uppercase">{h.lang.split("-")[0]}</span></span>
+                  {#if h.error}<span class="block truncate text-xs text-danger">{h.error}{h.failures > 1 ? ` · ${h.failures} días` : ""}</span>{/if}
+                </span>
+              </li>
+            {/each}
+          </ul>
+          <button class="w-full border-t border-fg/5 py-2.5 text-xs font-semibold text-muted" onclick={() => (showAllSources = !showAllSources)}>
+            {showAllSources ? "Mostrar solo las que fallan" : `Ver todas (${health.length})`}
+          </button>
+        {/if}
+      </div>
+    </section>
+  {/if}
 
   {#if stats}
     <section>

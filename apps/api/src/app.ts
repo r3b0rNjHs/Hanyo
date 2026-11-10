@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import type { ApiError, ExploreResponse, OpenSeriesRequest, ProgressUpdate, SearchMetaResponse, SearchResponse } from "@hanyo/types";
 import type { ServerStats } from "@hanyo/types";
 import type { ImageCache } from "./services/image-cache.js";
+import type { SourceHealthService } from "./services/health.js";
 import { Hono, type Context } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
@@ -25,6 +26,8 @@ export interface AppDeps {
   titles: AniListTitles;
   /** Optional: only used for the stats endpoint. */
   cache?: ImageCache;
+  /** Optional: daily source checks (settings screen). */
+  health?: SourceHealthService;
   log?: (msg: string) => void;
 }
 
@@ -279,6 +282,12 @@ export function createApp(d: AppDeps): Hono {
   app.delete("/history/:id", (c) => {
     d.library.forgetResume(intParam(c, "id"));
     return c.json({ ok: true });
+  });
+
+  app.get("/sources/health", (c) => c.json(d.health?.list() ?? []));
+  app.post("/sources/health/check", async (c) => {
+    if (!d.health) return c.json<ApiError>({ error: "Not available" }, 404);
+    return c.json(await d.health.checkAll());
   });
 
   app.get("/server/stats", async (c) =>

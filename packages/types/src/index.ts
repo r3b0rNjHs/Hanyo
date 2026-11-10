@@ -233,6 +233,18 @@ export interface ServerStats {
   sources: number;
 }
 
+/** Result of the daily check of a source (can it list its popular series?). */
+export interface SourceHealth {
+  sourceKey: string;
+  name: string;
+  lang: string;
+  ok: boolean;
+  error: string | null;
+  checkedAt: number;
+  /** Consecutive failed checks. */
+  failures: number;
+}
+
 export interface ApiError {
   error: string;
 }

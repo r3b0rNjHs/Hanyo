@@ -14,6 +14,7 @@ import type {
   SeriesSummary,
   ServerStats,
   Shelf,
+  SourceHealth,
   SourceInfo,
   UpdateCheckResult,
 } from "@hanyo/types";
@@ -114,6 +115,8 @@ export const api = {
     }
   },
 
+  sourceHealth: () => request<SourceHealth[]>("/sources/health"),
+  checkSources: () => post<SourceHealth[]>("/sources/health/check", {}),
   serverStats: () => request<ServerStats>("/server/stats"),
   checkUpdates: () => post<UpdateCheckResult>("/updates/check", {}),
   pushKey: () => request<{ enabled: boolean; publicKey: string | null }>("/push/key"),
