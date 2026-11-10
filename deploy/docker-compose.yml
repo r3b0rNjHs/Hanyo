@@ -22,7 +22,9 @@ services:
       UPDATE_INTERVAL: "0"
       JAVA_TOOL_OPTIONS: "-Xmx1g"
     volumes:
-      - ./suwayomi-data:/home/suwayomi/.local/share/Tachidesk
+      # Named volume: Docker creates it with the image's ownership (a root-owned bind mount
+      # would leave Suwayomi unable to write its config).
+      - suwayomi-data:/home/suwayomi/.local/share/Tachidesk
     depends_on:
       - flaresolverr
     mem_limit: 1600m
@@ -35,3 +37,6 @@ services:
       TZ: Europe/Madrid
       LOG_LEVEL: warn
     mem_limit: 1g
+
+volumes:
+  suwayomi-data:
