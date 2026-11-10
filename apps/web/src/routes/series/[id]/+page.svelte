@@ -6,6 +6,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import Spinner from "$lib/components/Spinner.svelte";
   import { downloads } from "$lib/offline/downloads.svelte";
+  import { AUTO_AHEAD, nextUnread } from "$lib/offline/auto-download";
   import { chapterLabel, formatBytes, relativeDate, SHELVES, shelfLabel, statusLabel } from "$lib/format";
   import type { Shelf } from "@hanyo/types";
 
@@ -185,6 +186,13 @@
     const pending = downloads.queue.filter((j) => mine.has(j.chapterId)).length + (downloads.active && mine.has(downloads.active.chapterId) ? 1 : 0);
     return { done: ids.length, bytes, pending, ids };
   });
+
+  async function toggleAuto() {
+    if (!s) return;
+    const enabled = !s.autoDownload;
+    s = await api.setAutoDownload(s.id, enabled);
+    if (enabled) downloads.enqueue(s, nextUnread(s));
+  }
 
   function cancelPending() {
     if (!s) return;
@@ -445,6 +453,15 @@
     {#if next5.length}<button class="sheet-btn" onclick={() => download(next5)}>Los próximos {next5.length}</button>{/if}
     <button class="sheet-btn" disabled={!unread.length} onclick={() => download(unread)}>Todos los no leídos ({unread.length})</button>
     <button class="sheet-btn" disabled={dl.done === s.chapters.length} onclick={() => download(s!.chapters)}>Toda la serie ({s.chapters.length})</button>
+    <label class="sheet-btn">
+      <span class="flex items-center justify-between gap-3">
+        <span>
+          <span class="block">Descargar nuevos automáticamente</span>
+          <span class="block text-xs text-muted">Al abrir la app, los {AUTO_AHEAD} siguientes sin leer</span>
+        </span>
+        <input type="checkbox" class="switch shrink-0" checked={s.autoDownload} disabled={offline} onchange={toggleAuto} />
+      </span>
+    </label>
     {#if dl.pending > 0}<button class="sheet-btn" onclick={cancelPending}>Cancelar pendientes ({dl.pending})</button>{/if}
     {#if dl.done > 0}<button class="sheet-btn text-danger" onclick={removeDownloads}>Eliminar descargas · {formatBytes(dl.bytes)}</button>{/if}
     <button class="sheet-btn mt-1 text-muted" onclick={() => (downloadMenu = false)}>Cancelar</button>
