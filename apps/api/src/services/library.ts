@@ -225,6 +225,17 @@ export class LibraryService {
     return out;
   }
 
+  counts(): { series: number; chapters: number } {
+    const one = (sql: string) => (this.db.prepare<[], { n: number }>(sql).get()?.n ?? 0);
+    return {
+      series: one("SELECT COUNT(*) AS n FROM series WHERE in_library = 1"),
+      chapters: one(
+        `SELECT COUNT(*) AS n FROM chapters c JOIN series_sources s ON s.id = c.series_source_id
+         JOIN series se ON se.id = s.series_id WHERE se.in_library = 1`,
+      ),
+    };
+  }
+
   setAutoDownload(seriesId: number, enabled: boolean): void {
     this.db.prepare("UPDATE series SET auto_download = ? WHERE id = ?").run(enabled ? 1 : 0, seriesId);
   }

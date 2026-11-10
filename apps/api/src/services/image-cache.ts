@@ -21,6 +21,10 @@ export class ImageCache {
     return this.totalBytes;
   }
 
+  get limit(): number {
+    return this.maxBytes;
+  }
+
   read(key: string): { bytes: Buffer; contentType: string } | null {
     const file = this.file(key);
     try {

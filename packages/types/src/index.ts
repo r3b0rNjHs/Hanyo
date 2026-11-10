@@ -195,6 +195,14 @@ export interface UpdateCheckResult {
   errors: string[];
 }
 
+/** Server health for the settings screen. */
+export interface ServerStats {
+  uptimeSec: number;
+  cache: { bytes: number; maxBytes: number };
+  library: { series: number; chapters: number };
+  sources: number;
+}
+
 export interface ApiError {
   error: string;
 }

@@ -40,6 +40,7 @@ const api = createApp({
   updates,
   push,
   titles,
+  cache,
 });
 
 const root = new Hono();

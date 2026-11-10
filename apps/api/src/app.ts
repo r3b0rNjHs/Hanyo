@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
 import type { ApiError, ExploreResponse, OpenSeriesRequest, ProgressUpdate, SearchMetaResponse, SearchResponse } from "@hanyo/types";
+import type { ServerStats } from "@hanyo/types";
+import type { ImageCache } from "./services/image-cache.js";
 import { Hono, type Context } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
@@ -21,6 +23,8 @@ export interface AppDeps {
   updates: UpdateService;
   push: PushService;
   titles: AniListTitles;
+  /** Optional: only used for the stats endpoint. */
+  cache?: ImageCache;
   log?: (msg: string) => void;
 }
 
@@ -252,6 +256,15 @@ export function createApp(d: AppDeps): Hono {
   });
 
   app.get("/library", (c) => c.json(d.library.listLibrary()));
+
+  app.get("/server/stats", async (c) =>
+    c.json<ServerStats>({
+      uptimeSec: Math.round(process.uptime()),
+      cache: { bytes: d.cache?.size ?? 0, maxBytes: d.cache?.limit ?? 0 },
+      library: d.library.counts(),
+      sources: (await d.registry.listSources()).length,
+    }),
+  );
 
   // Search the whole library on every source (runs in the background; can take minutes).
   app.post("/library/relink", (c) => {
