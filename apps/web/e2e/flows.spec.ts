@@ -172,3 +172,15 @@ test("search is reached from Explore and can be cancelled", async ({ page }) => 
   await page.getByRole("link", { name: "Cancelar" }).click();
   await page.waitForURL(/\/explore/);
 });
+
+test("chapter row actions: mark a chapter read without opening it", async ({ page }) => {
+  await login(page);
+  await page.goto("/");
+  await openSeries(page, "Demo Strip");
+  const row = page.locator('section[aria-label="Todos los capítulos"] li', { hasText: "Capítulo 2" });
+  await row.getByRole("link").click({ button: "right" });
+  await row.getByRole("button", { name: "Leído", exact: true }).click();
+  // Actions close again (hidden from the accessibility tree) and the label flips.
+  await expect(row.getByText("No leído")).toBeAttached();
+  await expect(row.locator("p").first()).toHaveClass(/text-faint/);
+});
