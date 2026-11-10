@@ -192,6 +192,16 @@ export function createApp(d: AppDeps): Hono {
     return c.json(d.library.detailFromDb(id));
   });
 
+  app.get("/series/:id/recommendations", async (c) => {
+    const title = d.library.title(intParam(c, "id"));
+    if (!title) return c.json<ApiError>({ error: "Not found" }, 404);
+    try {
+      return c.json(await d.titles.recommendations(title));
+    } catch (e) {
+      return c.json<ApiError>({ error: `AniList: ${(e as Error).message}` }, 502);
+    }
+  });
+
   app.post("/series/:id/shelf", async (c) => {
     const id = intParam(c, "id");
     const { shelf } = z.object({ shelf: z.enum(["reading", "plan", "paused", "completed"]) }).parse(await c.req.json());

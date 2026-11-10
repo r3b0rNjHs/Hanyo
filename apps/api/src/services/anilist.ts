@@ -1,5 +1,6 @@
-import type { TitleCluster, TrendingOrigin, TrendingResponse } from "@hanyo/types";
+import type { RecommendationsResponse, TitleCluster, TrendingOrigin, TrendingResponse } from "@hanyo/types";
 import { RateLimiter } from "../lib/ratelimit.js";
+import { normalizeTitle } from "../lib/text.js";
 
 const ENDPOINT = "https://graphql.anilist.co";
 const QUERY = `query ($search: String) {
@@ -20,6 +21,22 @@ const TRENDING = `query ($page: Int, $country: CountryCode, $genre: String) {
       title { romaji english native }
       synonyms
       coverImage { large }
+    }
+  }
+}`;
+
+const RECOMMENDATIONS = `query ($id: Int) {
+  Media(id: $id) {
+    recommendations(sort: RATING_DESC, perPage: 15) {
+      nodes {
+        rating
+        mediaRecommendation {
+          id countryOfOrigin popularity
+          title { romaji english native }
+          synonyms
+          coverImage { large }
+        }
+      }
     }
   }
 }`;
@@ -73,6 +90,42 @@ export class AniListTitles {
     };
     if (this.trendingCache.size > 100) this.trendingCache.clear();
     this.trendingCache.set(key, { at: Date.now(), value });
+    return value;
+  }
+
+  private readonly recCache = new Map<string, { at: number; value: RecommendationsResponse }>();
+
+  /**
+   * Series AniList users recommend for this one. The series is identified by an AniList entry
+   * that has exactly this title (so a vague title never borrows another series' list).
+   */
+  async recommendations(title: string): Promise<RecommendationsResponse> {
+    const key = normalizeTitle(title);
+    const hit = this.recCache.get(key);
+    if (hit && Date.now() - hit.at < this.ttlMs) return hit.value;
+    const same = (await this.lookup(title)).find((c) => c.titles.some((t) => normalizeTitle(t) === key));
+    let value: RecommendationsResponse = { items: [] };
+    if (same) {
+      const res = await this.limiter.schedule(() =>
+        this.fetchImpl(ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ query: RECOMMENDATIONS, variables: { id: same.id } }),
+          signal: AbortSignal.timeout(8000),
+        }),
+      );
+      if (!res.ok) throw new Error(`AniList ${res.status}`);
+      const json = (await res.json()) as {
+        data?: { Media?: { recommendations?: { nodes?: { rating: number; mediaRecommendation: Media | null }[] } } };
+      };
+      value = {
+        items: (json.data?.Media?.recommendations?.nodes ?? [])
+          .filter((n) => n.mediaRecommendation && n.rating > 0)
+          .map((n) => ({ cluster: toCluster(n.mediaRecommendation!), coverUrl: n.mediaRecommendation!.coverImage?.large ?? null })),
+      };
+    }
+    if (this.recCache.size > 300) this.recCache.clear();
+    this.recCache.set(key, { at: Date.now(), value });
     return value;
   }
 

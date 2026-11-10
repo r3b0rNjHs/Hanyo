@@ -1,8 +1,9 @@
 <script lang="ts">
-  import type { ChapterSummary, SeriesDetail } from "@hanyo/types";
+  import type { ChapterSummary, RecommendationsResponse, SeriesDetail } from "@hanyo/types";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { api } from "$lib/api";
+  import Cover from "$lib/components/Cover.svelte";
   import Icon from "$lib/components/Icon.svelte";
   import Spinner from "$lib/components/Spinner.svelte";
   import SwipeRow from "$lib/components/SwipeRow.svelte";
@@ -86,6 +87,18 @@
     void load(id);
   });
 
+  /** "Si te gusta esto…": AniList recommendations, loaded after the page (online only). */
+  let recs = $state<RecommendationsResponse["items"]>([]);
+  async function loadRecs(seriesId: number) {
+    recs = [];
+    try {
+      const r = await api.recommendations(seriesId);
+      if (s?.id === seriesId) recs = r.items.slice(0, 12);
+    } catch {
+      // Optional: no AniList, no section.
+    }
+  }
+
   async function load(seriesId: number) {
     try {
       const res = await fetch(`/api/series/${seriesId}`);
@@ -93,6 +106,7 @@
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `Error ${res.status}`);
       offline = res.headers.get("x-hanyo-offline") === "1";
       s = (await res.json()) as SeriesDetail;
+      if (!offline) void loadRecs(seriesId);
       if (page.url.searchParams.get("resume") && s.resume) {
         await goto(`/read/${s.resume.chapterId}`, { replaceState: true });
       }
@@ -350,6 +364,22 @@
       <button class="mt-4 block w-full text-left" onclick={() => (expanded = !expanded)} aria-expanded={expanded}>
         <p class="text-sm leading-relaxed break-words whitespace-pre-line text-soft {expanded ? '' : 'line-clamp-3'}">{s.description}</p>
       </button>
+    {/if}
+
+    {#if recs.length > 0}
+      <section aria-label="Si te gusta esto" class="mt-6">
+        <h2 class="font-display text-lg font-semibold">Si te gusta esto…</h2>
+        <ul class="no-scrollbar -mx-5 mt-2 flex gap-3 overflow-x-auto px-5 pb-1">
+          {#each recs as r (r.cluster.id)}
+            <li class="w-[104px] shrink-0">
+              <a href="/search?q={encodeURIComponent(r.cluster.title)}" class="block">
+                <Cover src={r.coverUrl} alt={r.cluster.title} rounded="rounded-[14px]" />
+                <p class="mt-1.5 line-clamp-2 text-[12px] leading-snug font-semibold">{r.cluster.title}</p>
+              </a>
+            </li>
+          {/each}
+        </ul>
+      </section>
     {/if}
 
     <section aria-label="Todos los capítulos" class="mt-6">

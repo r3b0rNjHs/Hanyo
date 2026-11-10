@@ -79,6 +79,11 @@ export interface TrendingResponse {
   items: { cluster: TitleCluster; coverUrl: string | null }[];
 }
 
+/** AniList entries like a series ("Si te gusta esto…"), source-independent. */
+export interface RecommendationsResponse {
+  items: { cluster: TitleCluster; coverUrl: string | null }[];
+}
+
 export interface SeriesSourceLink {
   id: number;
   sourceKey: string;

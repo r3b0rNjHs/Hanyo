@@ -6,6 +6,7 @@ import type {
   TrendingOrigin,
   TrendingResponse,
   ProgressUpdate,
+  RecommendationsResponse,
   SearchMetaResponse,
   SearchResponse,
   SeriesDetail,
@@ -82,6 +83,7 @@ export const api = {
   refreshSeries: (id: number) =>
     post<{ newNumbers: number[]; errors: string[]; detail: SeriesDetail }>(`/series/${id}/refresh`, {}),
   autoLink: (id: number) => post<{ added: string[]; detail: SeriesDetail }>(`/series/${id}/autolink`, {}),
+  recommendations: (id: number) => request<RecommendationsResponse>(`/series/${id}/recommendations`),
   setShelf: (id: number, shelf: Shelf) => post<SeriesDetail>(`/series/${id}/shelf`, { shelf }),
   setAutoDownload: (id: number, enabled: boolean) => post<SeriesDetail>(`/series/${id}/autodownload`, { enabled }),
   setLang: (id: number, lang: string) => post<SeriesDetail>(`/series/${id}/lang`, { lang }),

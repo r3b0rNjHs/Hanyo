@@ -70,3 +70,54 @@ describe("AniListTitles.trending", () => {
     expect(r.items[0]!.coverUrl).toBe("https://s4.anilist.co/c.jpg");
   });
 });
+
+describe("AniListTitles.recommendations", () => {
+  it("finds the entry with the exact title and returns its recommendations", async () => {
+    const calls: Array<Record<string, unknown>> = [];
+    const fake = (async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body));
+      calls.push(body.variables);
+      if (body.variables.search !== undefined) {
+        return new Response(
+          JSON.stringify({
+            data: {
+              Page: {
+                media: [
+                  { id: 7, countryOfOrigin: "KR", popularity: 1, title: { romaji: "Eleceed 2", english: null, native: null }, synonyms: [] },
+                  { id: 8, countryOfOrigin: "KR", popularity: 9, title: { romaji: "Eleceed", english: "Eleceed", native: null }, synonyms: [] },
+                ],
+              },
+            },
+          }),
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          data: {
+            Media: {
+              recommendations: {
+                nodes: [
+                  {
+                    rating: 40,
+                    mediaRecommendation: {
+                      id: 9,
+                      countryOfOrigin: "KR",
+                      popularity: 5,
+                      title: { romaji: "Lookism", english: "Lookism", native: null },
+                      synonyms: [],
+                      coverImage: { large: "https://s4.anilist.co/l.jpg" },
+                    },
+                  },
+                  { rating: -3, mediaRecommendation: null },
+                ],
+              },
+            },
+          },
+        }),
+      );
+    }) as unknown as typeof fetch;
+    const r = await new AniListTitles(fake).recommendations("Eleceed");
+    expect(calls[1]).toEqual({ id: 8 });
+    expect(r.items.map((i) => i.cluster.title)).toEqual(["Lookism"]);
+  });
+});
