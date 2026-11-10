@@ -28,6 +28,11 @@ _Last updated: 2026-11-09_
   shapes, pinch / double-tap zoom in paged mode, series cover on the next-chapter card.
 - **Settings**: light / dark / system theme (ADR-011), server stats (cache, library, sources, uptime).
 - **E2E**: Playwright suite on an offline demo source runs in CI (search, lists, reading, offline download).
+- **Navigation** (ADR-012): Biblioteca · Novedades (new chapters + Historial) · Explorar (with search) ·
+  Descargas; settings from the library header. Per-series notification bell, AniList recommendations
+  on the series page, swipe actions on chapter rows.
+- **Source health**: daily check of every source (lists its popular series); push when one breaks two
+  days in a row or comes back, one shared alert if all Suwayomi sources fail (Suwayomi / WARP down).
 
 ## Not yet verified on real hardware
 - iOS Safari standalone: push, wake lock, memory behaviour with long strips.
