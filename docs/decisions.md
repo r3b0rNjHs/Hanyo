@@ -49,3 +49,12 @@ actions and selection, coral (#FF8A73) only for "new", mint for done; Space Grot
 both self-hosted (@fontsource) so they work offline. Colours are role-named tokens in `app.css`
 (`base`, `surface`, `raised`, `accent`, `fresh`…), so the palette changes in one place. Floating pill
 navigation and reader bars; covers fall back to the title set big on a solid block.
+
+## ADR-010: Cloudflare WARP egress for Suwayomi (opt-in)
+Weeb Central bans the OVH IP at Cloudflare (whole site, including the image host); the owner won't run
+anything at home. Weeb Central's staff replied that anonymous personal use is fine and that they won't
+whitelist IPs: we should pass their checks like a normal visitor. `deploy/docker-compose.warp.yml` adds
+a WARP client container; Suwayomi uses it as a SOCKS5 proxy and FlareSolverr shares its network, so
+every source request and page image leaves through a consumer Cloudflare exit IP. hanyo-api keeps
+talking to MangaDex directly (MangaDex@Home reports need the real path). It is enabled per server via
+`COMPOSE_FILE` in `deploy/.env`, so it can be switched off without a code change.

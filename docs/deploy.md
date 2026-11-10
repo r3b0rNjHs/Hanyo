@@ -28,5 +28,20 @@ site file imported from `/etc/caddy/Caddyfile`.
 - Upgrade Suwayomi: `cd ~/hanyo/deploy && sudo docker compose pull && sudo docker compose up -d`
 - Backups: `~/hanyo/data/backups/` (daily 03:30 UTC, 7 days)
 
+## Cloudflare WARP (sites that block the VPS IP)
+Weeb Central (and others behind Cloudflare) ban OVH IPs. `deploy/docker-compose.warp.yml` adds a
+`warp` container and sends all Suwayomi + FlareSolverr traffic through it (Weeb Central allows
+anonymous personal use; they only asked us to pass their checks like a normal visitor).
+```
+cd /home/deploy/hanyo/deploy
+echo 'COMPOSE_FILE=docker-compose.yml:docker-compose.warp.yml' | sudo -u deploy tee .env
+sudo docker compose up -d
+sudo docker compose exec warp curl -s https://cloudflare.com/cdn-cgi/trace | grep warp=   # warp=on
+python3 test-sources.py warp-sources.txt   # Weeb Central + Comix
+```
+Then re-run `python3 test-sources.py` to confirm the 18 regular sources still work through WARP,
+and add the ones from `warp-sources.txt` that pass to `extensions.txt`.
+Disable: `sudo rm .env && sudo docker compose up -d --remove-orphans`.
+
 ## Resource budget (8 GB VPS)
 Suwayomi ≤ 1.6 GB, FlareSolverr ≤ 1 GB, hanyo-api ≤ 512 MB, image cache ≤ 15 GB of disk.
