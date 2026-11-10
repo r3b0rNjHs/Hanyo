@@ -21,19 +21,18 @@
 </script>
 
 <div class="relative aspect-[3/4] overflow-hidden bg-raised {rounded} {cls}">
+  <!-- Typographic placeholder (as in the design), visible while the image loads or if it fails. -->
+  <div class="absolute inset-0 flex items-end bg-accent/20 p-3" aria-hidden="true">
+    <span class="font-display line-clamp-3 text-lg leading-[0.95] font-bold tracking-tight text-fg/90 uppercase">{alt}</span>
+  </div>
   {#if src && !failed}
     <img
       src={attempt ? `${src}${src.includes("?") ? "&" : "?"}r=${attempt}` : src}
       {alt}
       loading="lazy"
       decoding="async"
-      class="h-full w-full object-cover"
+      class="absolute inset-0 h-full w-full object-cover"
       onerror={onError}
     />
-  {:else}
-    <!-- Typographic placeholder, as in the design: the title set big on a solid block. -->
-    <div class="flex h-full w-full items-end bg-accent/25 p-3">
-      <span class="font-display line-clamp-3 text-lg leading-[0.95] font-bold tracking-tight text-fg uppercase">{alt}</span>
-    </div>
   {/if}
 </div>
