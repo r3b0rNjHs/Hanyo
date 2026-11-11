@@ -17,6 +17,10 @@ switching sources never loses your place. Each account has its own library and p
 
 > The interface is in Spanish (the owner's language). Code, comments, commits and docs are in English.
 
+> **Want an account?** Hanyo is private and invite-only. If you'd like your own personal account,
+> write to me and ask: [open an issue](https://github.com/r3b0rNjHs/Hanyo/issues/new?title=Account%20request)
+> or contact [r3b0rNjHs](https://github.com/r3b0rNjHs) on GitHub, and I'll send you an invite link.
+
 ## Features
 
 **Accounts**
@@ -72,6 +76,8 @@ switching sources never loses your place. Each account has its own library and p
 - **The admin.** On first start the existing data belongs to an admin account (`admin`, or
   `HANYO_ADMIN_USER`) whose password is `HANYO_PASSWORD`. Username and password can then be changed in
   *Ajustes → Cuenta*. Changing the password signs out every other device.
+- **Getting an account.** There is no public sign-up: ask the owner (see the note at the top) and
+  you'll receive an invite link.
 - **Inviting someone.** *Ajustes → Cuentas → Invitar a alguien* opens the share sheet with a link.
   It works once and expires after 7 days; pending invites can be copied again or revoked. The person
   picks a username and password and starts with an empty library.
