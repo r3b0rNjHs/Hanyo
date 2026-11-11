@@ -5,6 +5,7 @@ import type {
   HistoryItem,
   ExploreResponse,
   TrendingOrigin,
+  TrendingSort,
   TrendingResponse,
   ProgressUpdate,
   RecommendationsResponse,
@@ -71,10 +72,11 @@ export const api = {
   explore: (source: string, kind: ExploreKind, page: number) =>
     request<ExploreResponse>(`/explore?source=${encodeURIComponent(source)}&kind=${kind}&page=${page}`),
 
-  trending: (origin: TrendingOrigin, page: number, genre?: string) =>
+  trending: (origin: TrendingOrigin, page: number, genre?: string, sort: TrendingSort = "trending") =>
     request<TrendingResponse>(
-      `/explore/trending?origin=${origin}&page=${page}${genre ? `&genre=${encodeURIComponent(genre)}` : ""}`,
+      `/explore/trending?origin=${origin}&page=${page}&sort=${sort}${genre ? `&genre=${encodeURIComponent(genre)}` : ""}`,
     ),
+  resolveSeries: (title: string, titles: string[]) => post<{ id: number }>("/series/resolve", { title, titles }),
 
   searchMeta: (q: string, signal?: AbortSignal) =>
     request<SearchMetaResponse>(`/search/meta?q=${encodeURIComponent(q)}`, { signal }),

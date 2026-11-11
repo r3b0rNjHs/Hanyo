@@ -7,6 +7,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import Spinner from "$lib/components/Spinner.svelte";
   import SwipeRow from "$lib/components/SwipeRow.svelte";
+  import { openByNames } from "$lib/resolve";
   import { downloads } from "$lib/offline/downloads.svelte";
   import { AUTO_AHEAD, nextUnread } from "$lib/offline/auto-download";
   import { chapterLabel, formatBytes, relativeDate, SHELVES, shelfLabel, statusLabel } from "$lib/format";
@@ -89,6 +90,15 @@
 
   /** "Si te gusta esto…": AniList recommendations, loaded after the page (online only). */
   let recs = $state<RecommendationsResponse["items"]>([]);
+  let openingRec = $state<number | null>(null);
+  async function openRec(key: number, title: string, titles: string[]) {
+    openingRec = key;
+    try {
+      await openByNames(title, titles);
+    } finally {
+      openingRec = null;
+    }
+  }
   async function loadRecs(seriesId: number) {
     recs = [];
     try {
@@ -399,10 +409,13 @@
         <ul class="no-scrollbar -mx-5 mt-2 flex gap-3 overflow-x-auto px-5 pb-1">
           {#each recs as r (r.cluster.id)}
             <li class="w-[104px] shrink-0">
-              <a href="/search?q={encodeURIComponent(r.cluster.title)}" class="block">
+              <button class="relative block w-full text-left" disabled={openingRec !== null} onclick={() => openRec(r.cluster.id, r.cluster.title, r.cluster.titles)}>
                 <Cover src={r.coverUrl} alt={r.cluster.title} rounded="rounded-[14px]" />
+                {#if openingRec === r.cluster.id}
+                  <span class="absolute inset-x-0 top-0 flex aspect-[3/4] items-center justify-center rounded-[14px] bg-base/60"><Spinner /></span>
+                {/if}
                 <p class="mt-1.5 line-clamp-2 text-[12px] leading-snug font-semibold">{r.cluster.title}</p>
-              </a>
+              </button>
             </li>
           {/each}
         </ul>
