@@ -245,3 +245,14 @@ test("the next chapter is prefetched and opens with no connection", async ({ pag
   expect(loaded).toBe(true);
   await context.setOffline(false);
 });
+
+test("reading stats count the chapters read in the earlier tests", async ({ page }) => {
+  await login(page);
+  await page.goto("/updates?view=history");
+  await page.getByRole("link", { name: /Tus estadísticas/ }).click();
+  await page.waitForURL(/\/stats/);
+  const week = page.locator("div", { hasText: /^\d+Esta semana · capítulos$/ }).first();
+  await expect(week).toBeVisible();
+  expect(Number((await week.locator("p").first().innerText()).trim())).toBeGreaterThanOrEqual(2);
+  await expect(page.getByRole("gridcell").last()).toBeVisible();
+});
