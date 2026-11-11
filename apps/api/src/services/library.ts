@@ -77,6 +77,11 @@ export class LibraryService {
     private readonly wrapCover: CoverWrapper,
   ) {}
 
+  /** For read-only reports (stats) that query several tables at once. */
+  get database(): DB {
+    return this.db;
+  }
+
   /**
    * Open a series from a search hit. Creates (or reuses) our series + source link
    * and fetches details/chapters. Returns our series id.
