@@ -33,6 +33,11 @@ _Last updated: 2026-11-11_
   on the series page, swipe actions on chapter rows.
 - **Source health**: daily check of every source (lists its popular series); push when one breaks two
   days in a row or comes back, one shared alert if all Suwayomi sources fail (Suwayomi / WARP down).
+- **Reading extras**: next chapter prefetched while reading (opens offline), preferred translation group
+  per series, reading stats (streak, activity, weekly bars, top series and genres), delete read / all
+  downloads.
+- **Accounts** (ADR-013): admin from the existing data, per-user library and progress over a shared
+  catalogue, invite links, account management in settings, logout clears cached personal data.
 
 ## Not yet verified on real hardware
 - iOS Safari standalone: push, wake lock, memory behaviour with long strips.
