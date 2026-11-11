@@ -10,6 +10,7 @@
   import { flushProgressQueue } from "$lib/offline/progress-queue";
   import { runAutoDownloads } from "$lib/offline/auto-download";
   import { feedBadge, refreshFeedBadge } from "$lib/feed-badge.svelte";
+  import { watchInstall } from "$lib/install.svelte";
   import { connection } from "$lib/connection.svelte";
 
   let { children } = $props();
@@ -35,6 +36,7 @@
   }
 
   onMount(() => {
+    watchInstall();
     void downloads.init();
     if (!dev && "serviceWorker" in navigator) {
       void navigator.serviceWorker.register("/service-worker.js", { type: "module" });

@@ -338,3 +338,20 @@ test("recommend a series to another account; it shows up in their Novedades", as
   await card.getByRole("button", { name: /Descartar recomendación/ }).click();
   await expect(guest.getByRole("region", { name: "Recomendado para ti" })).toHaveCount(0);
 });
+
+test("settings offers a one-click install when the browser allows it", async ({ page }) => {
+  await login(page);
+  await page.goto("/settings");
+  // Wait for the app to be up (it starts listening for the event when it mounts).
+  await expect(page.getByRole("heading", { name: "Cuenta", exact: true })).toBeVisible();
+  // Chrome/Edge fire this when the PWA is installable; simulate it.
+  await page.evaluate(() => {
+    const e = new Event("beforeinstallprompt") as Event & { prompt: () => Promise<void>; userChoice: Promise<unknown> };
+    e.prompt = async () => ((window as unknown as { prompted: boolean }).prompted = true) && undefined;
+    e.userChoice = Promise.resolve({ outcome: "accepted" });
+    window.dispatchEvent(e);
+  });
+  await page.getByRole("button", { name: "Instalar", exact: true }).click();
+  expect(await page.evaluate(() => (window as unknown as { prompted?: boolean }).prompted)).toBe(true);
+  await expect(page.getByRole("button", { name: "Instalar", exact: true })).toBeHidden();
+});
