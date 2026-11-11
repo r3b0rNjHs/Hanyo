@@ -6,6 +6,8 @@ interface ReaderSettings {
   keepAwake: boolean;
   showPageNumber: boolean;
   brightness: number;
+  /** Fetch the next chapter while reading this one. */
+  prefetchNext: boolean;
 }
 
 const KEY = "hanyo.reader.v1";
@@ -17,6 +19,7 @@ const defaults: ReaderSettings = {
   keepAwake: true,
   showPageNumber: true,
   brightness: 1,
+  prefetchNext: true,
 };
 
 function load<T>(key: string, fallback: T): T {
