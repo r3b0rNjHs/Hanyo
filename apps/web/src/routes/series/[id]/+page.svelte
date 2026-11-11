@@ -57,6 +57,18 @@
     }
   }
 
+  async function pickScanlator(name: string | null) {
+    if (!s) return;
+    sourcesBusy = "scanlator";
+    try {
+      s = await api.setScanlator(s.id, name);
+    } catch (e) {
+      sourcesMsg = (e as Error).message;
+    } finally {
+      sourcesBusy = null;
+    }
+  }
+
   async function removeSource(linkId: number) {
     if (!s) return;
     sourcesBusy = `del-${linkId}`;
@@ -594,6 +606,24 @@
         </li>
       {/each}
     </ul>
+    {#if s.scanlators.length > 1}
+      <div class="mt-4 rounded-[var(--radius-card)] bg-surface p-3.5">
+        <p class="font-semibold">Grupo de traducción</p>
+        <p class="text-xs text-muted">Si un capítulo está traducido por varios grupos, se usa el que elijas. Si no lo tiene, el de la fuente preferida.</p>
+        <div class="mt-2.5 flex flex-wrap gap-2" role="radiogroup" aria-label="Grupo de traducción">
+          {#each [{ name: null, chapters: 0 }, ...s.scanlators] as g (g.name ?? "")}
+            {@const on = (s.preferredScanlator?.toLowerCase() ?? null) === (g.name?.toLowerCase() ?? null)}
+            <button
+              role="radio"
+              aria-checked={on}
+              disabled={sourcesBusy !== null || offline}
+              onclick={() => pickScanlator(g.name)}
+              class="h-8 rounded-full px-3 text-[13px] font-semibold {on ? 'bg-accent text-on-accent' : 'bg-raised text-soft'}"
+            >{g.name ?? "Automático"}{#if g.name}<span class="ml-1 {on ? '' : 'text-muted'}">{g.chapters}</span>{/if}</button>
+          {/each}
+        </div>
+      </div>
+    {/if}
     {#if sourcesMsg}<p class="mt-3 px-1 text-sm text-soft" role="status">{sourcesMsg}</p>{/if}
     <button class="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-accent font-bold text-on-accent disabled:opacity-50" disabled={sourcesBusy !== null || offline} onclick={findMoreSources}>
       {#if sourcesBusy === "find"}<Spinner size={18} /> Buscando…{:else}<Icon name="search" size={18} stroke={2.4} /> Buscar en otras fuentes{/if}
