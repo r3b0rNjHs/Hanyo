@@ -106,3 +106,19 @@ describe("UpdateService.relinkLibrary", () => {
     expect((await updates.relinkLibrary()).checked).toBe(1);
   });
 });
+
+describe("UpdateService.openByNames", () => {
+  it("opens a series known only by its AniList names, preferring MangaDex", async () => {
+    const { library, updates } = setup();
+    const id = await updates.openByNames("Return of the Blossoming Blade", ["Return of the Mount Hua Sect"]);
+    expect(id).not.toBeNull();
+    await new Promise((r) => setTimeout(r, 20));
+    const detail = library.detailFromDb(id!)!;
+    expect(detail.sources.map((s) => s.sourceKey)).toEqual(["mangadex", "suwayomi:1"]);
+  });
+
+  it("returns null when no source has it", async () => {
+    const { updates } = setup();
+    expect(await updates.openByNames("Nothing Like This", [])).toBeNull();
+  });
+});

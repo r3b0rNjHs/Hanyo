@@ -68,6 +68,54 @@ export class UpdateService {
    * Search every other source for a series with the same normalized title and link exact matches,
    * so the merged chapter list fills gaps (e.g. MangaDex missing chapters available on Weeb Central).
    */
+  /**
+   * Find a series on the sources by its names and open it: MangaDex first, then English sources.
+   * The other matches are linked in the background so the chapter list fills in.
+   */
+  async openByNames(title: string, titles: string[], timeoutMs = 15_000): Promise<number | null> {
+    const names = new Set([title, ...titles].map(normalizeTitle).filter(Boolean));
+    const sources = await this.registry.listSources();
+    const find = async (key: string): Promise<string | null> => {
+      const { provider, sourceId } = this.registry.resolve(key);
+      const hits = await Promise.race([
+        provider.search(sourceId, title),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), timeoutMs).unref()),
+      ]);
+      return hits.find((h) => [h.title, ...(h.altTitles ?? [])].some((t) => names.has(normalizeTitle(t))))?.externalId ?? null;
+    };
+
+    // MangaDex answers fast and is the preferred source: when it has the series, open right away
+    // and let auto-linking find the other sources in the background.
+    if (sources.some((s) => s.key === "mangadex")) {
+      const md = await find("mangadex").catch(() => null);
+      if (md) {
+        const id = await this.library.open("mangadex", md);
+        void this.autoLink(id).catch((e) => this.log(`autolink ${id} failed: ${e}`));
+        return id;
+      }
+    }
+
+    const found: { key: string; externalId: string; rank: number }[] = [];
+    await Promise.allSettled(
+      sources
+        .filter((s) => s.key !== "mangadex")
+        .map(async (s, order) => {
+          const externalId = await find(s.key);
+          if (!externalId) return;
+          const lang = s.lang.split("-")[0];
+          found.push({ key: s.key, externalId, rank: (lang === "en" || lang === "all" ? 0 : 1) * 1000 + order });
+        }),
+    );
+    if (!found.length) return null;
+    found.sort((a, b) => a.rank - b.rank);
+    const [first, ...rest] = found;
+    const id = await this.library.open(first!.key, first!.externalId);
+    void (async () => {
+      for (const r of rest) await this.library.linkSource(id, r.key, r.externalId).catch(() => undefined);
+    })();
+    return id;
+  }
+
   async autoLink(seriesId: number): Promise<string[]> {
     const detail = this.library.detailFromDb(seriesId);
     if (!detail) return [];

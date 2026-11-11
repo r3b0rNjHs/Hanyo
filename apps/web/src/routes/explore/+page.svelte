@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { ExploreKind, SearchHit, SourceInfo, TrendingOrigin } from "@hanyo/types";
+  import type { ExploreKind, SearchHit, SourceInfo, TrendingOrigin, TrendingSort } from "@hanyo/types";
+  import { openByNames } from "$lib/resolve";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { api } from "$lib/api";
@@ -41,6 +42,8 @@
   ];
   let genre = $state("");
   let genreOpen = $state(false);
+  let sort = $state<TrendingSort>("trending");
+  const SORT_LABELS: Record<TrendingSort, string> = { trending: "Tendencia", popular: "Más populares", score: "Mejor valoradas" };
 
   /** A grid entry: either a source's own series, or an AniList title to look up on every source. */
   interface Item {
@@ -48,6 +51,8 @@
     title: string;
     coverUrl: string | null;
     hit?: SearchHit;
+    /** Every name AniList knows (trending items), used to find it on the sources. */
+    titles?: string[];
   }
   let hits = $state<Item[]>([]);
   let owned = $state(new Map<string, number>());
@@ -69,7 +74,7 @@
 
   function save() {
     try {
-      localStorage.setItem(STORE, JSON.stringify({ lang, kind, sourceKey, origin, genre }));
+      localStorage.setItem(STORE, JSON.stringify({ lang, kind, sourceKey, origin, genre, sort }));
     } catch {}
   }
 
@@ -92,8 +97,8 @@
       let items: Item[];
       let next: boolean;
       if (sourceKey === TRENDING) {
-        const r = await api.trending(origin, page + 1, genre || undefined);
-        items = r.items.map((i) => ({ id: `al${i.cluster.id}`, title: i.cluster.title, coverUrl: i.coverUrl }));
+        const r = await api.trending(origin, page + 1, genre || undefined, sort);
+        items = r.items.map((i) => ({ id: `al${i.cluster.id}`, title: i.cluster.title, coverUrl: i.coverUrl, titles: i.cluster.titles }));
         next = r.hasNextPage;
       } else {
         const r = await api.explore(sourceKey, noLatest ? "popular" : kind, page + 1);
@@ -120,8 +125,18 @@
   }
 
   async function open(item: Item) {
-    // Trending titles aren't tied to a source: search them everywhere (search merges by AniList names).
-    if (!item.hit) return goto(`/search?q=${encodeURIComponent(item.title)}`);
+    // Trending titles aren't tied to a source: the server finds them by name and opens the series.
+    if (!item.hit) {
+      opening = item.id;
+      try {
+        await openByNames(item.title, item.titles ?? []);
+      } catch (e) {
+        error = (e as Error).message;
+      } finally {
+        opening = null;
+      }
+      return;
+    }
     const h = item.hit;
     const mine = ownedId(item);
     if (mine !== undefined) return goto(`/series/${mine}`);
@@ -145,6 +160,7 @@
       if (saved.sourceKey) sourceKey = saved.sourceKey;
       if (saved.origin) origin = saved.origin;
       if (typeof saved.genre === "string") genre = saved.genre;
+      if (saved.sort === "popular" || saved.sort === "score") sort = saved.sort;
     } catch {}
     api
       .sources()
@@ -216,12 +232,12 @@
       {/each}
     </div>
     <button
-      class="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full {genre ? 'bg-accent/20 text-accent-soft' : 'bg-surface text-soft'}"
+      class="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full {genre || sort !== 'trending' ? 'bg-accent/20 text-accent-soft' : 'bg-surface text-soft'}"
       onclick={() => (genreOpen = true)}
-      aria-label="Género: {GENRES.find(([g]) => g === genre)?.[1] ?? 'Todos'}"
+      aria-label="Filtros: {GENRES.find(([g]) => g === genre)?.[1] ?? 'Todos'}, {SORT_LABELS[sort]}"
     >
       <Icon name="sliders" size={18} stroke={2} />
-      {#if genre}<span class="absolute top-2 right-2 h-2 w-2 rounded-full bg-accent"></span>{/if}
+      {#if genre || sort !== "trending"}<span class="absolute top-2 right-2 h-2 w-2 rounded-full bg-accent"></span>{/if}
     </button>
   {:else}
     <div class="grid flex-1 grid-cols-2 gap-1 rounded-full bg-surface p-1" role="radiogroup" aria-label="Orden">
@@ -250,14 +266,31 @@
     {/if}
   {/if}
 </div>
-{#if sourceKey === TRENDING && genre}
-  <p class="mt-2 px-6 text-xs text-muted">Género: <span class="font-semibold text-soft">{GENRES.find(([g]) => g === genre)?.[1]}</span> · <button class="text-accent-soft" onclick={() => { genre = ""; reset(); }}>quitar</button></p>
+{#if sourceKey === TRENDING && (genre || sort !== "trending")}
+  <p class="mt-2 px-6 text-xs text-muted">
+    {SORT_LABELS[sort]}{#if genre} · <span class="font-semibold text-soft">{GENRES.find(([g]) => g === genre)?.[1]}</span>{/if}
+    · <button class="text-accent-soft" onclick={() => { genre = ""; sort = "trending"; reset(); }}>quitar filtros</button>
+  </p>
 {/if}
 
 {#if genreOpen}
   <button class="fixed inset-0 z-40 bg-black/60" onclick={() => (genreOpen = false)} aria-label="Cerrar"></button>
   <div class="pb-safe fixed inset-x-0 bottom-0 z-50 rounded-t-[28px] bg-raised p-5" role="dialog" aria-label="Género">
-    <p class="font-display text-lg font-semibold">Género</p>
+    <p class="font-display text-lg font-semibold">Ordenar por</p>
+    <div class="mt-3 grid grid-cols-3 gap-1 rounded-full bg-base p-1" role="radiogroup" aria-label="Ordenar por">
+      {#each Object.entries(SORT_LABELS) as [k, label] (k)}
+        <button
+          role="radio"
+          aria-checked={sort === k}
+          onclick={() => { sort = k as TrendingSort; reset(); }}
+          class="h-9 rounded-full text-[12px] font-semibold {sort === k ? 'bg-accent text-on-accent' : 'text-soft'}"
+        >{label}</button>
+      {/each}
+    </div>
+    <p class="mt-1.5 text-xs text-muted">
+      {sort === "trending" ? "Lo que más se está leyendo estos días." : sort === "popular" ? "Las más seguidas de siempre." : "Las mejor puntuadas por los lectores."}
+    </p>
+    <p class="font-display mt-5 text-lg font-semibold">Género</p>
     <div class="mt-3 flex flex-wrap gap-2" role="radiogroup" aria-label="Géneros">
       {#each GENRES as [g, label] (g)}
         <button
