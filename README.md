@@ -1,6 +1,6 @@
 # Hanyo
 
-A personal, self-hosted library and offline reader for **manhwa, manga and manhua**, installed on the
+A small, self-hosted library and offline reader for **manhwa, manga and manhua**, installed on the
 iPhone as a PWA.
 
 Search many sources at once, keep your series in one library, get notified when new chapters come
@@ -18,6 +18,11 @@ switching sources never loses your place.
 > The interface is in Spanish (the owner's language). Code, comments, commits and docs are in English.
 
 ## Features
+
+**Accounts**
+- Several people, each with their own library, lists, progress, history, stats and notifications.
+  The catalogue and the server's image cache are shared, so a series one person reads is already
+  warm for the next. New accounts join through single-use invite links.
 
 **Library**
 - Reading lists: *Leyendo*, *Pendiente*, *En pausa*, *Terminada*, with filters and sorting.
@@ -129,7 +134,8 @@ All settings are environment variables (see [`.env.example`](.env.example)):
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `HANYO_PASSWORD` | `hanyo` in dev, required in prod | Single-user login |
+| `HANYO_PASSWORD` | `hanyo` in dev, required in prod | Initial password of the admin account |
+| `HANYO_ADMIN_USER` | `admin` | Username of the admin account on first start |
 | `SESSION_SECRET` | dev value, required in prod | Signs the session cookie and image URLs |
 | `DATA_DIR` | `./data` | SQLite database and image cache |
 | `API_PORT` | `3101` | API port (bound to 127.0.0.1) |
