@@ -29,6 +29,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
+      # apt mirrors on the runner fail now and then; the runner image already has most of
+      # Chromium's libraries, so fall back to installing only the browser.
+      - run: npx playwright install --with-deps chromium || npx playwright install chromium
         working-directory: apps/web
       - run: npm run e2e --workspace=apps/web
