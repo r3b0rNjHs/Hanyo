@@ -28,6 +28,7 @@
     // Search lives inside Explore; series pages and settings belong to the library.
     if (href === "/") return p === "/" || p.startsWith("/series/") || p.startsWith("/settings");
     if (href === "/explore") return p.startsWith("/explore") || p.startsWith("/search");
+    if (href === "/updates") return p.startsWith("/updates") || p.startsWith("/stats");
     return p.startsWith(href);
   }
 

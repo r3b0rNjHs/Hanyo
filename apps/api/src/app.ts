@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import type { ApiError, ExploreResponse, OpenSeriesRequest, ProgressUpdate, SearchMetaResponse, SearchResponse } from "@hanyo/types";
 import type { ServerStats } from "@hanyo/types";
 import type { ImageCache } from "./services/image-cache.js";
+import { readingStats } from "./services/stats.js";
 import type { SourceHealthService } from "./services/health.js";
 import { Hono, type Context } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
@@ -297,6 +298,10 @@ export function createApp(d: AppDeps): Hono {
   app.get("/library/links", (c) => c.json(d.library.libraryLinks()));
   app.get("/feed", (c) => c.json(d.library.feed()));
   app.get("/history", (c) => c.json(d.library.history()));
+  app.get("/stats", (c) => {
+    const { tz } = z.object({ tz: z.coerce.number().int().min(-840).max(840).default(0) }).parse(c.req.query());
+    return c.json(readingStats(d.library.database, tz));
+  });
   app.delete("/history/:id", (c) => {
     d.library.forgetResume(intParam(c, "id"));
     return c.json({ ok: true });

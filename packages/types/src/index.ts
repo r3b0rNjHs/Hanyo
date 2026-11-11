@@ -252,6 +252,18 @@ export interface SourceHealth {
   failures: number;
 }
 
+/** Reading statistics, computed in the reader's time zone. */
+export interface ReadingStats {
+  totals: { week: number; month: number; year: number; all: number };
+  /** Consecutive days with at least one chapter read (current ends today or yesterday). */
+  streak: { current: number; best: number };
+  /** Chapters read per local day, oldest first, for the last `days.length` days (today included). */
+  days: { date: string; chapters: number }[];
+  topSeries: { seriesId: number; title: string; coverUrl: string | null; chapters: number }[];
+  topGenres: { name: string; chapters: number }[];
+  finishedSeries: number;
+}
+
 export interface ApiError {
   error: string;
 }

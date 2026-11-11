@@ -152,6 +152,14 @@
 </div>
 
 {#if view === "history"}
+  <a href="/stats" class="mx-5 mt-1 mb-2 flex items-center gap-3 rounded-[var(--radius-card)] bg-surface px-4 py-3">
+    <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent-soft"><Icon name="sliders" size={18} stroke={2} /></span>
+    <span class="min-w-0 flex-1">
+      <span class="block font-semibold">Tus estadísticas</span>
+      <span class="block text-xs text-muted">Racha, capítulos por semana, géneros…</span>
+    </span>
+    <Icon name="chevronRight" size={18} class="text-muted" />
+  </a>
   {#if history === null}
     <div class="flex justify-center py-24"><Spinner /></div>
   {:else if history.length === 0}
