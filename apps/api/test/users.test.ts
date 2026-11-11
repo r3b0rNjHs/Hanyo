@@ -180,4 +180,24 @@ describe("auth routes", () => {
     expect((await call("/auth/me", {}, other)).status).toBe(401);
     expect((await call("/auth/me", {}, cookieOf(change))).status).toBe(200);
   });
+
+  it("redeems an invite into a logged-in account; admin routes are admin-only", async () => {
+    const { call, svc } = app();
+    const admin = cookieOf(await call("/auth/login", { method: "POST", body: JSON.stringify({ username: "admin", password: "first-password" }) }));
+    const { token } = await (await call("/admin/invites", { method: "POST" }, admin)).json();
+    expect((await (await call(`/invites/${token}`)).json()).valid).toBe(true);
+
+    const redeem = await call(`/invites/${token}/redeem`, { method: "POST", body: JSON.stringify({ username: "marta", password: "marta-password" }) });
+    expect(redeem.status).toBe(200);
+    const marta = cookieOf(redeem);
+    expect((await (await call("/auth/me", {}, marta)).json()).user).toMatchObject({ username: "marta", isAdmin: false });
+    expect((await call(`/invites/${token}/redeem`, { method: "POST", body: JSON.stringify({ username: "otro", password: "otro-password" }) })).status).toBe(400);
+
+    expect((await call("/admin/users", {}, marta)).status).toBe(403);
+    const list = await (await call("/admin/users", {}, admin)).json();
+    expect(list.map((u: { username: string }) => u.username)).toEqual(["admin", "marta"]);
+    const martaId = svc.authenticate("marta", "marta-password")!.id;
+    expect((await call(`/admin/users/${martaId}`, { method: "DELETE" }, admin)).status).toBe(200);
+    expect((await call("/auth/me", {}, marta)).status).toBe(401);
+  });
 });

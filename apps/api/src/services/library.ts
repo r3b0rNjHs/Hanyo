@@ -356,6 +356,16 @@ export class LibraryService {
     this.db.prepare("DELETE FROM resume_points WHERE user_id = ? AND series_id = ?").run(uid, seriesId);
   }
 
+  /** For the accounts list: library size and last reading activity of a user. */
+  userActivity(uid: number): { librarySize: number; lastReadAt: number | null } {
+    return {
+      librarySize:
+        this.db.prepare<[number], { n: number }>("SELECT COUNT(*) AS n FROM user_series WHERE user_id = ? AND in_library = 1").get(uid)?.n ?? 0,
+      lastReadAt:
+        this.db.prepare<[number], { t: number | null }>("SELECT MAX(updated_at) AS t FROM resume_points WHERE user_id = ?").get(uid)?.t ?? null,
+    };
+  }
+
   /** Library series of one user, or (no uid) of anyone: what the update checks keep fresh. */
   inLibraryIds(uid?: number): number[] {
     const rows =
