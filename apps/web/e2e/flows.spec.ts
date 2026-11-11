@@ -251,8 +251,9 @@ test("reading stats count the chapters read in the earlier tests", async ({ page
   await page.goto("/updates?view=history");
   await page.getByRole("link", { name: /Tus estadísticas/ }).click();
   await page.waitForURL(/\/stats/);
-  const week = page.locator("div", { hasText: /^\d+Esta semana · capítulos$/ }).first();
-  await expect(week).toBeVisible();
-  expect(Number((await week.locator("p").first().innerText()).trim())).toBeGreaterThanOrEqual(2);
+  const label = page.getByText("Esta semana · capítulos", { exact: true });
+  await expect(label).toBeVisible();
+  const value = await label.locator("xpath=preceding-sibling::p[1]").innerText();
+  expect(Number(value.trim())).toBeGreaterThanOrEqual(2);
   await expect(page.getByRole("gridcell").last()).toBeVisible();
 });
