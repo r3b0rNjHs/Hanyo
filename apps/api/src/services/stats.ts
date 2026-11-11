@@ -9,16 +9,17 @@ const HEATMAP_DAYS = 7 * 17;
  * Reading statistics from read marks. `tzOffsetMin` is the reader's offset from UTC
  * (minutes east, e.g. 60 for Madrid in winter) so days and weeks follow their clock.
  */
-export function readingStats(db: DB, tzOffsetMin: number, now = Date.now()): ReadingStats {
+export function readingStats(db: DB, uid: number, tzOffsetMin: number, now = Date.now()): ReadingStats {
   const shift = tzOffsetMin * 60_000;
   // Only marks that look like reading: drop batches written at the same instant.
   const marks = db
-    .prepare<[number], { series_id: number; read_at: number }>(
+    .prepare<[number, number, number], { series_id: number; read_at: number }>(
       `SELECT m.series_id, m.read_at FROM read_marks m
-       JOIN (SELECT series_id, read_at FROM read_marks GROUP BY series_id, read_at HAVING COUNT(*) < ?) ok
-         ON ok.series_id = m.series_id AND ok.read_at = m.read_at`,
+       JOIN (SELECT series_id, read_at FROM read_marks WHERE user_id = ? GROUP BY series_id, read_at HAVING COUNT(*) < ?) ok
+         ON ok.series_id = m.series_id AND ok.read_at = m.read_at
+       WHERE m.user_id = ?`,
     )
-    .all(BULK_MARKS);
+    .all(uid, BULK_MARKS, uid);
 
   const dayOf = (ms: number) => new Date(ms + shift).toISOString().slice(0, 10);
   const today = dayOf(now);
@@ -89,6 +90,8 @@ export function readingStats(db: DB, tzOffsetMin: number, now = Date.now()): Rea
     topSeries,
     topGenres: [...genres].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([name, chapters]) => ({ name, chapters })),
     finishedSeries:
-      db.prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM series WHERE in_library = 1 AND shelf = 'completed'").get()?.n ?? 0,
+      db
+        .prepare<[number], { n: number }>("SELECT COUNT(*) AS n FROM user_series WHERE user_id = ? AND in_library = 1 AND shelf = 'completed'")
+        .get(uid)?.n ?? 0,
   };
 }

@@ -14,6 +14,7 @@ import { normalizeTitle } from "../lib/text.js";
 import type { ProviderRegistry } from "../providers/registry.js";
 import type { RawSeries } from "../providers/types.js";
 
+/** A series as one user sees it: shared columns + that user's own (user_series) values. */
 interface SeriesRow {
   id: number;
   title: string;
@@ -66,6 +67,17 @@ interface ChapterRow {
 export interface CoverWrapper {
   (sourceKey: string, upstreamUrl: string | null): string | null;
 }
+
+/**
+ * Per-user view of a series row. uid 0 is "nobody": defaults only (used by background jobs that
+ * work on the shared catalogue, e.g. auto-linking or prefetch).
+ */
+const USER_ROW = `SELECT s.id, s.title, s.cover_url, s.description, s.authors, s.genres, s.status, s.last_checked_at,
+    s.updated_at, COALESCE(us.lang, s.lang) AS lang,
+    COALESCE(us.in_library, 0) AS in_library, COALESCE(us.shelf, 'reading') AS shelf,
+    COALESCE(us.auto_download, 0) AS auto_download, COALESCE(us.notify, 1) AS notify,
+    us.preferred_scanlator, us.added_at
+  FROM series s LEFT JOIN user_series us ON us.series_id = s.id AND us.user_id = ?`;
 
 /** How long a source's chapter list is considered fresh when opening a series page. */
 const CHAPTERS_TTL_MS = 30 * 60_000;
@@ -147,12 +159,24 @@ export class LibraryService {
   }
 
   /** Switch the language a series is read in. Progress is per chapter number, so it carries over. */
-  setLang(seriesId: number, lang: string): void {
+  setLang(uid: number, seriesId: number, lang: string): void {
     const has = this.db
       .prepare<[number, string], { n: number }>("SELECT COUNT(*) AS n FROM series_sources WHERE series_id = ? AND lang = ?")
       .get(seriesId, lang)!.n;
     if (!has) throw new Error(`No hay fuentes en ese idioma (${lang})`);
-    this.db.prepare("UPDATE series SET lang = ?, updated_at = ? WHERE id = ?").run(lang, Date.now(), seriesId);
+    this.setUser(uid, seriesId, { lang });
+  }
+
+  /** Upsert this user's own values for a series. */
+  private setUser(
+    uid: number,
+    seriesId: number,
+    v: Partial<{ in_library: number; shelf: Shelf; notify: number; auto_download: number; preferred_scanlator: string | null; lang: string; added_at: number }>,
+  ): void {
+    this.db.prepare("INSERT OR IGNORE INTO user_series (user_id, series_id) VALUES (?, ?)").run(uid, seriesId);
+    for (const [k, val] of Object.entries(v)) {
+      this.db.prepare(`UPDATE user_series SET ${k} = ? WHERE user_id = ? AND series_id = ?`).run(val, uid, seriesId);
+    }
   }
 
   unlinkSource(seriesId: number, linkId: number): void {
@@ -205,16 +229,19 @@ export class LibraryService {
     })();
   }
 
-  setInLibrary(seriesId: number, inLibrary: boolean): void {
-    this.db
-      .prepare("UPDATE series SET in_library = ?, added_at = CASE WHEN ? THEN COALESCE(added_at, ?) ELSE added_at END WHERE id = ?")
-      .run(inLibrary ? 1 : 0, inLibrary ? 1 : 0, Date.now(), seriesId);
+  setInLibrary(uid: number, seriesId: number, inLibrary: boolean): void {
+    this.setUser(uid, seriesId, { in_library: inLibrary ? 1 : 0 });
+    if (inLibrary) {
+      this.db
+        .prepare("UPDATE user_series SET added_at = COALESCE(added_at, ?) WHERE user_id = ? AND series_id = ?")
+        .run(Date.now(), uid, seriesId);
+    }
   }
 
   /** Move a series to a reading list (adding it to the library if needed). */
-  setShelf(seriesId: number, shelf: Shelf): void {
-    this.setInLibrary(seriesId, true);
-    this.db.prepare("UPDATE series SET shelf = ? WHERE id = ?").run(shelf, seriesId);
+  setShelf(uid: number, seriesId: number, shelf: Shelf): void {
+    this.setInLibrary(uid, seriesId, true);
+    this.setUser(uid, seriesId, { shelf });
   }
 
   setPageRatio(chapterId: number, index: number, ratio: number): void {
@@ -237,45 +264,51 @@ export class LibraryService {
   counts(): { series: number; chapters: number } {
     const one = (sql: string) => (this.db.prepare<[], { n: number }>(sql).get()?.n ?? 0);
     return {
-      series: one("SELECT COUNT(*) AS n FROM series WHERE in_library = 1"),
+      series: one("SELECT COUNT(DISTINCT series_id) AS n FROM user_series WHERE in_library = 1"),
       chapters: one(
         `SELECT COUNT(*) AS n FROM chapters c JOIN series_sources s ON s.id = c.series_source_id
-         JOIN series se ON se.id = s.series_id WHERE se.in_library = 1`,
+         WHERE s.series_id IN (SELECT series_id FROM user_series WHERE in_library = 1)`,
       ),
     };
   }
 
-  setPreferredScanlator(seriesId: number, name: string | null): void {
-    this.db.prepare("UPDATE series SET preferred_scanlator = ? WHERE id = ?").run(name?.trim() || null, seriesId);
+  setPreferredScanlator(uid: number, seriesId: number, name: string | null): void {
+    this.setUser(uid, seriesId, { preferred_scanlator: name?.trim() || null });
   }
 
-  setNotify(seriesId: number, enabled: boolean): void {
-    this.db.prepare("UPDATE series SET notify = ? WHERE id = ?").run(enabled ? 1 : 0, seriesId);
+  setNotify(uid: number, seriesId: number, enabled: boolean): void {
+    this.setUser(uid, seriesId, { notify: enabled ? 1 : 0 });
   }
 
-  notifyEnabled(seriesId: number): boolean {
-    return this.row(seriesId)?.notify === 1;
+  /** Users who follow this series and want its new-chapter notifications. */
+  usersToNotify(seriesId: number): number[] {
+    return this.db
+      .prepare<[number], { user_id: number }>(
+        "SELECT user_id FROM user_series WHERE series_id = ? AND in_library = 1 AND notify = 1",
+      )
+      .all(seriesId)
+      .map((r) => r.user_id);
   }
 
-  setAutoDownload(seriesId: number, enabled: boolean): void {
-    this.db.prepare("UPDATE series SET auto_download = ? WHERE id = ?").run(enabled ? 1 : 0, seriesId);
+  setAutoDownload(uid: number, seriesId: number, enabled: boolean): void {
+    this.setUser(uid, seriesId, { auto_download: enabled ? 1 : 0 });
   }
 
-  listLibrary(): SeriesSummary[] {
+  listLibrary(uid: number): SeriesSummary[] {
     const rows = this.db
-      .prepare<[], SeriesRow>("SELECT * FROM series WHERE in_library = 1 ORDER BY updated_at DESC")
-      .all();
-    return rows.map((r) => this.summary(r));
+      .prepare<[number], SeriesRow>(`${USER_ROW} WHERE us.in_library = 1 ORDER BY s.updated_at DESC`)
+      .all(uid);
+    return rows.map((r) => this.summary(uid, r));
   }
 
   /** Every source entry of the library's series, so search and Explore can mark what you already have. */
-  libraryLinks(): { sourceKey: string; externalId: string; seriesId: number }[] {
+  libraryLinks(uid: number): { sourceKey: string; externalId: string; seriesId: number }[] {
     return this.db
-      .prepare<[], { source_key: string; external_id: string; series_id: number }>(
+      .prepare<[number], { source_key: string; external_id: string; series_id: number }>(
         `SELECT ss.source_key, ss.external_id, ss.series_id FROM series_sources ss
-         JOIN series s ON s.id = ss.series_id WHERE s.in_library = 1`,
+         JOIN user_series us ON us.series_id = ss.series_id WHERE us.user_id = ? AND us.in_library = 1`,
       )
-      .all()
+      .all(uid)
       .map((r) => ({ sourceKey: r.source_key, externalId: r.external_id, seriesId: r.series_id }));
   }
 
@@ -283,12 +316,12 @@ export class LibraryService {
    * Latest chapters of the series you follow (Leyendo / En pausa; one per chapter number, in the
    * series' language), newest first. "Pendiente" and "Terminada" series would only add noise.
    */
-  feed(limit = 80): FeedItem[] {
+  feed(uid: number, limit = 80): FeedItem[] {
     const items: FeedItem[] = [];
-    for (const id of this.inLibraryIds()) {
-      const row = this.row(id);
+    for (const id of this.inLibraryIds(uid)) {
+      const row = this.row(id, uid);
       if (!row || (row.shelf !== "reading" && row.shelf !== "paused")) continue;
-      for (const c of this.mergedChapters(id)) {
+      for (const c of this.mergedChapters(id, uid)) {
         if (c.publishedAt === null) continue;
         items.push({ seriesId: id, seriesTitle: row.title, coverUrl: row.cover_url, chapter: c });
       }
@@ -296,17 +329,17 @@ export class LibraryService {
     return items.sort((a, b) => b.chapter.publishedAt! - a.chapter.publishedAt!).slice(0, limit);
   }
 
-  history(limit = 60): HistoryItem[] {
+  history(uid: number, limit = 60): HistoryItem[] {
     return this.db
       .prepare<
-        [number],
+        [number, number],
         { series_id: number; title: string; cover_url: string | null; chapter_id: number; number: number | null; page: number; updated_at: number }
       >(
         `SELECT r.series_id, s.title, s.cover_url, r.chapter_id, c.number, r.page, r.updated_at
          FROM resume_points r JOIN series s ON s.id = r.series_id JOIN chapters c ON c.id = r.chapter_id
-         ORDER BY r.updated_at DESC LIMIT ?`,
+         WHERE r.user_id = ? ORDER BY r.updated_at DESC LIMIT ?`,
       )
-      .all(limit)
+      .all(uid, limit)
       .map((r) => ({
         seriesId: r.series_id,
         seriesTitle: r.title,
@@ -319,29 +352,33 @@ export class LibraryService {
   }
 
   /** Remove a series from the history (forgets the resume point, keeps read marks). */
-  forgetResume(seriesId: number): void {
-    this.db.prepare("DELETE FROM resume_points WHERE series_id = ?").run(seriesId);
+  forgetResume(uid: number, seriesId: number): void {
+    this.db.prepare("DELETE FROM resume_points WHERE user_id = ? AND series_id = ?").run(uid, seriesId);
   }
 
-  inLibraryIds(): number[] {
-    return this.db
-      .prepare<[], { id: number }>("SELECT id FROM series WHERE in_library = 1")
-      .all()
-      .map((r) => r.id);
+  /** Library series of one user, or (no uid) of anyone: what the update checks keep fresh. */
+  inLibraryIds(uid?: number): number[] {
+    const rows =
+      uid === undefined
+        ? this.db.prepare<[], { id: number }>("SELECT DISTINCT series_id AS id FROM user_series WHERE in_library = 1").all()
+        : this.db
+            .prepare<[number], { id: number }>("SELECT series_id AS id FROM user_series WHERE user_id = ? AND in_library = 1")
+            .all(uid);
+    return rows.map((r) => r.id);
   }
 
-  async detail(seriesId: number): Promise<SeriesDetail | null> {
-    const row = this.row(seriesId);
+  async detail(seriesId: number, uid: number): Promise<SeriesDetail | null> {
+    const row = this.row(seriesId, uid);
     if (!row) return null;
     // Keep chapter lists reasonably fresh when the user opens a series.
     await Promise.allSettled(this.links(seriesId).map((l) => this.refreshSourceIfStale(l)));
-    return this.detailFromDb(seriesId);
+    return this.detailFromDb(seriesId, uid);
   }
 
-  detailFromDb(seriesId: number): SeriesDetail | null {
-    const row = this.row(seriesId);
+  detailFromDb(seriesId: number, uid: number): SeriesDetail | null {
+    const row = this.row(seriesId, uid);
     if (!row) return null;
-    const chapters = this.mergedChapters(seriesId);
+    const chapters = this.mergedChapters(seriesId, uid);
     const links = this.links(seriesId);
     const sources: SeriesSourceLink[] = links.map((l) => {
       const stats = this.db
@@ -362,7 +399,7 @@ export class LibraryService {
       };
     });
     return {
-      ...this.summary(row, chapters),
+      ...this.summary(uid, row, chapters),
       lang: row.lang,
       availableLangs: [...new Set(links.map((l) => l.lang))].sort(),
       description: row.description,
@@ -371,16 +408,16 @@ export class LibraryService {
       sources,
       preferredScanlator: row.preferred_scanlator,
       scanlators: this.db
-        .prepare<[number], { name: string; n: number }>(
+        .prepare<[number, string], { name: string; n: number }>(
           `SELECT c.scanlator AS name, COUNT(DISTINCT c.number) AS n FROM chapters c
-           JOIN series_sources s ON s.id = c.series_source_id JOIN series se ON se.id = s.series_id
-           WHERE s.series_id = ? AND s.lang = se.lang AND c.scanlator IS NOT NULL AND trim(c.scanlator) != ''
+           JOIN series_sources s ON s.id = c.series_source_id
+           WHERE s.series_id = ? AND s.lang = ? AND c.scanlator IS NOT NULL AND trim(c.scanlator) != ''
            GROUP BY lower(c.scanlator) ORDER BY n DESC LIMIT 12`,
         )
-        .all(seriesId)
+        .all(seriesId, row.lang)
         .map((r) => ({ name: r.name, chapters: r.n })),
       chapters,
-      resume: this.resume(seriesId),
+      resume: this.resume(seriesId, uid),
     };
   }
 
@@ -390,20 +427,22 @@ export class LibraryService {
    * the most recently published upload.
    * Chapters without a number are kept per source, ordered by source order.
    */
-  mergedChapters(seriesId: number): ChapterSummary[] {
+  mergedChapters(seriesId: number, uid: number): ChapterSummary[] {
+    const row = this.row(seriesId, uid);
+    if (!row) return [];
     const rows = this.db
-      .prepare<[number], ChapterRow & { source_key: string; source_name: string; priority: number }>(
+      .prepare<[number, string], ChapterRow & { source_key: string; source_name: string; priority: number }>(
         `SELECT c.*, s.source_key, s.source_name, s.priority
          FROM chapters c JOIN series_sources s ON s.id = c.series_source_id
-         WHERE s.series_id = ? AND s.lang = (SELECT lang FROM series WHERE id = s.series_id)`,
+         WHERE s.series_id = ? AND s.lang = ?`,
       )
-      .all(seriesId);
-    const pref = this.row(seriesId)?.preferred_scanlator?.toLowerCase() ?? null;
+      .all(seriesId, row.lang);
+    const pref = row.preferred_scanlator?.toLowerCase() ?? null;
     const prefRank = (s: string | null) => (pref && s?.toLowerCase() === pref ? 0 : 1);
     const read = new Set(
       this.db
-        .prepare<[number], { number: number }>("SELECT number FROM read_marks WHERE series_id = ?")
-        .all(seriesId)
+        .prepare<[number, number], { number: number }>("SELECT number FROM read_marks WHERE user_id = ? AND series_id = ?")
+        .all(uid, seriesId)
         .map((r) => r.number),
     );
 
@@ -458,7 +497,7 @@ export class LibraryService {
     return out;
   }
 
-  chapterContext(chapterId: number): {
+  chapterContext(chapterId: number, uid: number): {
     chapter: ChapterRow;
     link: SourceRow;
     prevId: number | null;
@@ -470,7 +509,7 @@ export class LibraryService {
     const link = this.db
       .prepare<[number], SourceRow>("SELECT * FROM series_sources WHERE id = ?")
       .get(chapter.series_source_id)!;
-    const merged = this.mergedChapters(link.series_id);
+    const merged = this.mergedChapters(link.series_id, uid);
     // A chapter may be an "alternative" not present in the merged list; navigate by number then.
     let idx = merged.findIndex((c) => c.id === chapterId);
     if (idx < 0 && chapter.number !== null) idx = merged.findIndex((c) => c.number === chapter.number);
@@ -487,36 +526,37 @@ export class LibraryService {
    * The chapter itself followed by the same chapter number on the series' other sources,
    * preferred sources first: what to try when a source can't deliver a chapter's pages.
    */
-  chapterCandidates(chapterId: number): Array<{ id: number; sourceName: string }> {
-    const ctx = this.chapterContext(chapterId);
+  chapterCandidates(chapterId: number, uid: number): Array<{ id: number; sourceName: string }> {
+    const ctx = this.chapterContext(chapterId, uid);
     if (!ctx) return [];
     const self = { id: chapterId, sourceName: ctx.link.source_name };
     if (ctx.chapter.number === null) return [self];
+    const row = this.row(ctx.link.series_id, uid)!;
+    const pref = row.preferred_scanlator;
     const others = this.db
-      .prepare<[number, number, number], { id: number; source_name: string }>(
+      .prepare<[number, number, number, string, string | null, string | null], { id: number; source_name: string }>(
         `SELECT c.id, s.source_name FROM chapters c JOIN series_sources s ON s.id = c.series_source_id
-         JOIN series se ON se.id = s.series_id
-         WHERE s.series_id = ? AND c.number = ? AND c.id != ? AND s.lang = se.lang
-         ORDER BY (se.preferred_scanlator IS NOT NULL AND lower(c.scanlator) = lower(se.preferred_scanlator)) DESC,
-                  s.priority, c.published_at DESC`,
+         WHERE s.series_id = ? AND c.number = ? AND c.id != ? AND s.lang = ?
+         ORDER BY (? IS NOT NULL AND lower(c.scanlator) = lower(?)) DESC, s.priority, c.published_at DESC`,
       )
-      .all(ctx.link.series_id, ctx.chapter.number, chapterId);
+      .all(ctx.link.series_id, ctx.chapter.number, chapterId, row.lang, pref, pref);
     return [self, ...others.map((o) => ({ id: o.id, sourceName: o.source_name }))];
   }
 
-  saveProgress(chapterId: number, page: number, completed: boolean, offset = 0): void {
-    const ctx = this.chapterContext(chapterId);
+  saveProgress(uid: number, chapterId: number, page: number, completed: boolean, offset = 0): void {
+    const ctx = this.chapterContext(chapterId, uid);
     if (!ctx) throw new Error("Chapter not found");
     const seriesId = ctx.link.series_id;
     const now = Date.now();
     this.db.transaction(() => {
       this.db
         .prepare(
-          `INSERT INTO resume_points (series_id, chapter_id, page, page_offset, updated_at) VALUES (?, ?, ?, ?, ?)
-           ON CONFLICT(series_id) DO UPDATE SET chapter_id = excluded.chapter_id, page = excluded.page,
+          `INSERT INTO resume_points (user_id, series_id, chapter_id, page, page_offset, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+           ON CONFLICT(user_id, series_id) DO UPDATE SET chapter_id = excluded.chapter_id, page = excluded.page,
              page_offset = excluded.page_offset, updated_at = excluded.updated_at`,
         )
         .run(
+          uid,
           seriesId,
           completed && ctx.nextId ? ctx.nextId : chapterId,
           completed ? 0 : page,
@@ -524,24 +564,26 @@ export class LibraryService {
           now,
         );
       // Opening a planned or paused series in the reader means you're reading it now.
-      this.db.prepare("UPDATE series SET shelf = 'reading' WHERE id = ? AND shelf IN ('plan', 'paused')").run(seriesId);
+      this.db
+        .prepare("UPDATE user_series SET shelf = 'reading' WHERE user_id = ? AND series_id = ? AND shelf IN ('plan', 'paused')")
+        .run(uid, seriesId);
       if (completed && ctx.chapter.number !== null) {
         this.db
-          .prepare("INSERT OR IGNORE INTO read_marks (series_id, number, read_at) VALUES (?, ?, ?)")
-          .run(seriesId, ctx.chapter.number, now);
+          .prepare("INSERT OR IGNORE INTO read_marks (user_id, series_id, number, read_at) VALUES (?, ?, ?, ?)")
+          .run(uid, seriesId, ctx.chapter.number, now);
       }
     })();
   }
 
   /** Mark every chapter up to and including `number` as read (or unread). */
-  markRead(seriesId: number, numbers: number[], read: boolean): void {
+  markRead(uid: number, seriesId: number, numbers: number[], read: boolean): void {
     const now = Date.now();
-    const ins = this.db.prepare("INSERT OR IGNORE INTO read_marks (series_id, number, read_at) VALUES (?, ?, ?)");
-    const del = this.db.prepare("DELETE FROM read_marks WHERE series_id = ? AND number = ?");
+    const ins = this.db.prepare("INSERT OR IGNORE INTO read_marks (user_id, series_id, number, read_at) VALUES (?, ?, ?, ?)");
+    const del = this.db.prepare("DELETE FROM read_marks WHERE user_id = ? AND series_id = ? AND number = ?");
     this.db.transaction(() => {
       for (const n of numbers) {
-        if (read) ins.run(seriesId, n, now);
-        else del.run(seriesId, n);
+        if (read) ins.run(uid, seriesId, n, now);
+        else del.run(uid, seriesId, n);
       }
     })();
   }
@@ -556,14 +598,14 @@ export class LibraryService {
       .map((r) => r.id);
   }
 
-  seriesBasics(seriesId: number): { title: string; cover: string | null; genres: string[]; resume: ResumePoint | null } {
-    const row = this.row(seriesId);
+  seriesBasics(seriesId: number, uid: number): { title: string; cover: string | null; genres: string[]; resume: ResumePoint | null } {
+    const row = this.row(seriesId, uid);
     if (!row) throw new Error("Series not found");
     return {
       title: row.title,
       cover: row.cover_url,
       genres: JSON.parse(row.genres) as string[],
-      resume: this.resume(seriesId),
+      resume: this.resume(seriesId, uid),
     };
   }
 
@@ -580,27 +622,27 @@ export class LibraryService {
   }
 
   title(seriesId: number): string | null {
-    return this.row(seriesId)?.title ?? null;
+    return this.row(seriesId, 0)?.title ?? null;
   }
 
-  private resume(seriesId: number): ResumePoint | null {
+  private resume(seriesId: number, uid: number): ResumePoint | null {
     const r = this.db
-      .prepare<[number], { chapter_id: number; page: number; page_offset: number }>(
-        "SELECT chapter_id, page, page_offset FROM resume_points WHERE series_id = ?",
+      .prepare<[number, number], { chapter_id: number; page: number; page_offset: number }>(
+        "SELECT chapter_id, page, page_offset FROM resume_points WHERE user_id = ? AND series_id = ?",
       )
-      .get(seriesId);
+      .get(uid, seriesId);
     if (!r) return null;
     const ch = this.db.prepare<[number], ChapterRow>("SELECT * FROM chapters WHERE id = ?").get(r.chapter_id);
     if (!ch) return null;
     return { chapterId: r.chapter_id, chapterNumber: ch.number, page: r.page, offset: r.page_offset };
   }
 
-  private summary(row: SeriesRow, merged?: ChapterSummary[]): SeriesSummary {
-    const chapters = merged ?? this.mergedChapters(row.id);
+  private summary(uid: number, row: SeriesRow, merged?: ChapterSummary[]): SeriesSummary {
+    const chapters = merged ?? this.mergedChapters(row.id, uid);
     const numbered = chapters.filter((c) => c.number !== null);
     const lastRead = this.db
-      .prepare<[number], { n: number | null }>("SELECT MAX(number) AS n FROM read_marks WHERE series_id = ?")
-      .get(row.id)!.n;
+      .prepare<[number, number], { n: number | null }>("SELECT MAX(number) AS n FROM read_marks WHERE user_id = ? AND series_id = ?")
+      .get(uid, row.id)!.n;
     return {
       id: row.id,
       title: row.title,
@@ -617,8 +659,8 @@ export class LibraryService {
       updatedAt: row.updated_at,
       lastReadAt:
         this.db
-          .prepare<[number], { t: number }>("SELECT updated_at AS t FROM resume_points WHERE series_id = ?")
-          .get(row.id)?.t ?? null,
+          .prepare<[number, number], { t: number }>("SELECT updated_at AS t FROM resume_points WHERE user_id = ? AND series_id = ?")
+          .get(uid, row.id)?.t ?? null,
     };
   }
 
@@ -678,7 +720,7 @@ export class LibraryService {
       .all(seriesId);
   }
 
-  private row(seriesId: number): SeriesRow | undefined {
-    return this.db.prepare<[number], SeriesRow>("SELECT * FROM series WHERE id = ?").get(seriesId);
+  private row(seriesId: number, uid: number): SeriesRow | undefined {
+    return this.db.prepare<[number, number], SeriesRow>(`${USER_ROW} WHERE s.id = ?`).get(uid, seriesId);
   }
 }

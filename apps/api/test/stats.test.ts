@@ -13,7 +13,11 @@ function setup() {
   );
   add.run(1, "Eleceed", '["Action","Long Strip","Comedy"]', "reading");
   add.run(2, "Lookism", '["Drama"]', "completed");
-  const mark = db.prepare("INSERT INTO read_marks (series_id, number, read_at) VALUES (?, ?, ?)");
+  const own = db.prepare("INSERT INTO user_series (user_id, series_id, in_library, shelf) VALUES (1, ?, 1, ?)");
+  own.run(1, "reading");
+  own.run(2, "completed");
+  const ins = db.prepare("INSERT INTO read_marks (user_id, series_id, number, read_at) VALUES (1, ?, ?, ?)");
+  const mark = { run: (series: number, n: number, at: number) => ins.run(series, n, at) };
   return { db, mark };
 }
 
@@ -25,7 +29,7 @@ describe("readingStats", () => {
     mark.run(1, 3, NOW); // today
     mark.run(1, 4, NOW + 1000);
     mark.run(2, 1, NOW - 10 * DAY); // last month? no: Nov 1 → this month, older week
-    const s = readingStats(db, 0, NOW);
+    const s = readingStats(db, 1, 0, NOW);
     expect(s.totals).toEqual({ week: 4, month: 5, year: 5, all: 5 });
     expect(s.streak).toEqual({ current: 3, best: 3 });
     expect(s.days.at(-1)).toEqual({ date: "2026-11-11", chapters: 2 });
@@ -38,13 +42,13 @@ describe("readingStats", () => {
     const { db, mark } = setup();
     for (let n = 1; n <= 30; n++) mark.run(1, n, NOW - 3 * DAY);
     mark.run(1, 31, NOW);
-    expect(readingStats(db, 0, NOW).totals.all).toBe(1);
+    expect(readingStats(db, 1, 0, NOW).totals.all).toBe(1);
   });
 
   it("uses the reader's time zone for days", () => {
     const { db, mark } = setup();
     mark.run(1, 1, Date.UTC(2026, 10, 11, 23, 30)); // 00:30 on the 12th in Madrid (UTC+1)
-    const s = readingStats(db, 60, Date.UTC(2026, 10, 11, 23, 45));
+    const s = readingStats(db, 1, 60, Date.UTC(2026, 10, 11, 23, 45));
     expect(s.days.at(-1)).toEqual({ date: "2026-11-12", chapters: 1 });
   });
 });

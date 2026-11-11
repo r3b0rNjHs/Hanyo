@@ -6,6 +6,9 @@ import { ProviderRegistry } from "../src/providers/registry.js";
 import type { Provider, RawChapter, RawSeries } from "../src/providers/types.js";
 import { LibraryService } from "../src/services/library.js";
 
+/** The admin created by the multi-user migration owns the data in these tests. */
+const U = 1;
+
 function chapters(nums: number[], prefix: string): RawChapter[] {
   return nums.map((n, i) => ({
     externalId: `${prefix}-${n}`,
@@ -99,7 +102,7 @@ describe("LibraryService", () => {
     const id = await library.open("mangadex", "md-1");
     await library.linkSource(id, "suwayomi:42", "7");
 
-    const merged = library.mergedChapters(id);
+    const merged = library.mergedChapters(id, U);
     expect(merged.map((c) => c.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     // Chapters present on both prefer MangaDex (priority 50 < 100) and keep the other as alternative.
     const ch1 = merged[0]!;
@@ -114,29 +117,29 @@ describe("LibraryService", () => {
     const id = await library.open("mangadex", "md-1");
     await library.linkSource(id, "suwayomi:42", "7");
     // MangaDex (md) wins by priority; Weeb Central chapters are by "wc".
-    expect(library.mergedChapters(id)[0]!.scanlator).toBe("md");
-    expect(library.detailFromDb(id)!.scanlators.map((s) => s.name)).toEqual(["wc", "md"]);
+    expect(library.mergedChapters(id, U)[0]!.scanlator).toBe("md");
+    expect(library.detailFromDb(id, U)!.scanlators.map((s) => s.name)).toEqual(["wc", "md"]);
 
-    library.setPreferredScanlator(id, "WC");
-    const merged = library.mergedChapters(id);
+    library.setPreferredScanlator(U, id, "WC");
+    const merged = library.mergedChapters(id, U);
     expect(merged[0]!.scanlator).toBe("wc");
-    expect(library.chapterCandidates(merged[0]!.alternatives[0]!).map((c) => c.sourceName)).toEqual(["MangaDex", "Weeb Central"]);
-    expect(library.detailFromDb(id)!.preferredScanlator).toBe("WC");
+    expect(library.chapterCandidates(merged[0]!.alternatives[0]!, U).map((c) => c.sourceName)).toEqual(["MangaDex", "Weeb Central"]);
+    expect(library.detailFromDb(id, U)!.preferredScanlator).toBe("WC");
 
-    library.setPreferredScanlator(id, null);
-    expect(library.mergedChapters(id)[0]!.scanlator).toBe("md");
+    library.setPreferredScanlator(U, id, null);
+    expect(library.mergedChapters(id, U)[0]!.scanlator).toBe("md");
   });
 
   it("tracks read state by chapter number so it survives source changes", async () => {
     const { library } = setup();
     const id = await library.open("mangadex", "md-1");
     await library.linkSource(id, "suwayomi:42", "7");
-    const ch2 = library.mergedChapters(id).find((c) => c.number === 2)!;
-    library.saveProgress(ch2.id, 5, false, 0.42);
-    expect(library.detailFromDb(id)!.resume).toMatchObject({ chapterId: ch2.id, page: 5, offset: 0.42 });
-    library.saveProgress(ch2.id, 5, true, 0.9);
+    const ch2 = library.mergedChapters(id, U).find((c) => c.number === 2)!;
+    library.saveProgress(U, ch2.id, 5, false, 0.42);
+    expect(library.detailFromDb(id, U)!.resume).toMatchObject({ chapterId: ch2.id, page: 5, offset: 0.42 });
+    library.saveProgress(U, ch2.id, 5, true, 0.9);
 
-    const detail = library.detailFromDb(id)!;
+    const detail = library.detailFromDb(id, U)!;
     expect(detail.chapters.find((c) => c.number === 2)!.read).toBe(true);
     // Resume moves to the next chapter after completing one.
     expect(detail.resume?.chapterNumber).toBe(3);
@@ -159,8 +162,8 @@ describe("LibraryService", () => {
     const { library } = setup();
     const id = await library.open("mangadex", "md-1");
     await library.linkSource(id, "suwayomi:42", "7");
-    const merged = library.mergedChapters(id);
-    const ctx = library.chapterContext(merged[3]!.id)!;
+    const merged = library.mergedChapters(id, U);
+    const ctx = library.chapterContext(merged[3]!.id, U)!;
     expect(ctx.prevId).toBe(merged[2]!.id);
     expect(ctx.nextId).toBe(merged[4]!.id);
   });
@@ -168,25 +171,25 @@ describe("LibraryService", () => {
   it("keeps reading lists and moves planned series to reading once opened", async () => {
     const { library } = setup();
     const id = await library.open("mangadex", "md-1");
-    library.setShelf(id, "plan");
-    expect(library.listLibrary().map((s) => [s.id, s.shelf])).toEqual([[id, "plan"]]);
+    library.setShelf(U, id, "plan");
+    expect(library.listLibrary(U).map((s) => [s.id, s.shelf])).toEqual([[id, "plan"]]);
 
-    library.saveProgress(library.mergedChapters(id)[0]!.id, 2, false);
-    expect(library.detailFromDb(id)!.shelf).toBe("reading");
+    library.saveProgress(U, library.mergedChapters(id, U)[0]!.id, 2, false);
+    expect(library.detailFromDb(id, U)!.shelf).toBe("reading");
 
-    library.setShelf(id, "completed");
-    library.saveProgress(library.mergedChapters(id)[1]!.id, 0, true);
-    expect(library.detailFromDb(id)!.shelf).toBe("completed");
+    library.setShelf(U, id, "completed");
+    library.saveProgress(U, library.mergedChapters(id, U)[1]!.id, 0, true);
+    expect(library.detailFromDb(id, U)!.shelf).toBe("completed");
   });
 
   it("builds a feed of the latest library chapters, newest first", async () => {
     const { library } = setup();
     const id = await library.open("mangadex", "md-1");
-    expect(library.feed()).toEqual([]);
-    library.setShelf(id, "plan");
-    expect(library.feed()).toEqual([]);
-    library.setShelf(id, "reading");
-    const feed = library.feed(2);
+    expect(library.feed(U)).toEqual([]);
+    library.setShelf(U, id, "plan");
+    expect(library.feed(U)).toEqual([]);
+    library.setShelf(U, id, "reading");
+    const feed = library.feed(U, 2);
     expect(feed.map((f) => f.chapter.number)).toEqual([10, 3]);
     expect(feed[0]!.seriesTitle).toBe("Eleceed");
   });
@@ -194,21 +197,21 @@ describe("LibraryService", () => {
   it("keeps a reading history from resume points, newest first", async () => {
     const { library } = setup();
     const id = await library.open("mangadex", "md-1");
-    const ch = library.mergedChapters(id)[1]!;
-    library.saveProgress(ch.id, 4, false);
-    expect(library.history()).toMatchObject([{ seriesId: id, chapterId: ch.id, chapterNumber: 2, page: 4 }]);
-    library.forgetResume(id);
-    expect(library.history()).toEqual([]);
-    expect(library.detailFromDb(id)!.resume).toBeNull();
+    const ch = library.mergedChapters(id, U)[1]!;
+    library.saveProgress(U, ch.id, 4, false);
+    expect(library.history(U)).toMatchObject([{ seriesId: id, chapterId: ch.id, chapterNumber: 2, page: 4 }]);
+    library.forgetResume(U, id);
+    expect(library.history(U)).toEqual([]);
+    expect(library.detailFromDb(id, U)!.resume).toBeNull();
   });
 
   it("lists the source entries of library series", async () => {
     const { library } = setup();
     const id = await library.open("mangadex", "md-1");
     await library.linkSource(id, "suwayomi:42", "7");
-    expect(library.libraryLinks()).toEqual([]);
-    library.setInLibrary(id, true);
-    expect(library.libraryLinks().map((l) => `${l.sourceKey}|${l.externalId}|${l.seriesId === id}`).sort()).toEqual([
+    expect(library.libraryLinks(U)).toEqual([]);
+    library.setInLibrary(U, id, true);
+    expect(library.libraryLinks(U).map((l) => `${l.sourceKey}|${l.externalId}|${l.seriesId === id}`).sort()).toEqual([
       "mangadex|md-1|true",
       "suwayomi:42|7|true",
     ]);
@@ -217,17 +220,19 @@ describe("LibraryService", () => {
   it("notifies new chapters per series, on by default", async () => {
     const { library } = setup();
     const id = await library.open("mangadex", "md-1");
-    expect(library.detailFromDb(id)!.notify).toBe(true);
-    library.setNotify(id, false);
-    expect(library.notifyEnabled(id)).toBe(false);
+    expect(library.detailFromDb(id, U)!.notify).toBe(true);
+    library.setInLibrary(U, id, true);
+    expect(library.usersToNotify(id)).toEqual([U]);
+    library.setNotify(U, id, false);
+    expect(library.usersToNotify(id)).toEqual([]);
   });
 
   it("stores the automatic download flag per series", async () => {
     const { library } = setup();
     const id = await library.open("mangadex", "md-1");
-    expect(library.detailFromDb(id)!.autoDownload).toBe(false);
-    library.setAutoDownload(id, true);
-    expect(library.detailFromDb(id)!.autoDownload).toBe(true);
+    expect(library.detailFromDb(id, U)!.autoDownload).toBe(false);
+    library.setAutoDownload(U, id, true);
+    expect(library.detailFromDb(id, U)!.autoDownload).toBe(true);
   });
 
   it("re-opening the same source entry reuses the series", async () => {
@@ -259,7 +264,7 @@ describe("LibraryService languages", () => {
     const { library } = setupLangs();
     const id = await library.open("mangadex", "md-1");
     await library.linkSource(id, "suwayomi:7", "9");
-    const detail = library.detailFromDb(id)!;
+    const detail = library.detailFromDb(id, U)!;
     expect(detail.lang).toBe("en");
     expect(detail.availableLangs).toEqual(["en", "es"]);
     expect(detail.chapters.map((c) => c.number)).toEqual([1, 2, 3]);
@@ -271,22 +276,22 @@ describe("LibraryService languages", () => {
     const { library } = setupLangs();
     const id = await library.open("mangadex", "md-1");
     await library.linkSource(id, "suwayomi:7", "9");
-    library.markRead(id, [1, 2], true);
+    library.markRead(U, id, [1, 2], true);
 
-    library.setLang(id, "es");
-    const detail = library.detailFromDb(id)!;
+    library.setLang(U, id, "es");
+    const detail = library.detailFromDb(id, U)!;
     expect(detail.chapters.map((c) => c.number)).toEqual([1, 2, 3, 4, 5]);
     expect(detail.chapters.filter((c) => c.read).map((c) => c.number)).toEqual([1, 2]);
     expect(detail.unreadCount).toBe(3);
     // Fallback candidates stay within the series' language.
     const ch3 = detail.chapters.find((c) => c.number === 3)!;
-    expect(library.chapterCandidates(ch3.id).map((c) => c.sourceName)).toEqual(["LeerCapitulo"]);
+    expect(library.chapterCandidates(ch3.id, U).map((c) => c.sourceName)).toEqual(["LeerCapitulo"]);
   });
 
   it("refuses a language with no linked source", async () => {
     const { library } = setupLangs();
     const id = await library.open("mangadex", "md-1");
-    expect(() => library.setLang(id, "fr")).toThrow(/No hay fuentes/);
+    expect(() => library.setLang(U, id, "fr")).toThrow(/No hay fuentes/);
   });
 });
 
@@ -295,7 +300,7 @@ describe("LibraryService.counts", () => {
     const { library } = setup();
     const id = await library.open("mangadex", "md-1");
     expect(library.counts()).toEqual({ series: 0, chapters: 0 });
-    library.setInLibrary(id, true);
+    library.setInLibrary(U, id, true);
     expect(library.counts()).toEqual({ series: 1, chapters: 4 });
   });
 });

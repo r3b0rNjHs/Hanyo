@@ -14,9 +14,10 @@ import { normLang, type LibraryService } from "./services/library.js";
 import { SourceUnavailableError, type PageService } from "./services/pages.js";
 import type { PushService } from "./services/push.js";
 import type { UpdateService } from "./services/updates.js";
+import { UserError, type User, type UserService } from "./services/users.js";
 
 export interface AppDeps {
-  password: string;
+  users: UserService;
   signer: Signer;
   secureCookies: boolean;
   registry: ProviderRegistry;
@@ -35,9 +36,20 @@ export interface AppDeps {
 const SESSION_COOKIE = "hanyo_session";
 const SESSION_MAX_AGE_S = 365 * 24 * 3600;
 
-export function createApp(d: AppDeps): Hono {
+export function createApp(d: AppDeps) {
   const log = d.log ?? console.log;
-  const app = new Hono().basePath("/api");
+  const app = new Hono<{ Variables: { user: User } }>().basePath("/api");
+  /** The logged-in user's id (set by the auth middleware). */
+  const uid = (c: Context) => (c.get("user") as User).id;
+  const sessionCookie = (c: Context, user: User) =>
+    setCookie(c, SESSION_COOKIE, d.signer.sign({ v: 2, uid: user.id, sv: user.sessionVersion, iat: Date.now() }), {
+      httpOnly: true,
+      secure: d.secureCookies,
+      sameSite: "Lax",
+      path: "/",
+      maxAge: SESSION_MAX_AGE_S,
+    });
+  const me = (u: User) => ({ ok: true as const, user: { id: u.id, username: u.username, isAdmin: u.isAdmin } });
 
   app.onError((err, c) => {
     log(`ERROR ${c.req.method} ${c.req.path}: ${err.message}`);
@@ -53,21 +65,18 @@ export function createApp(d: AppDeps): Hono {
     const f = failures.get(ip);
     if (f && f.until > Date.now()) return c.json<ApiError>({ error: "Demasiados intentos, espera un minuto" }, 429);
 
-    const body = z.object({ password: z.string() }).safeParse(await c.req.json().catch(() => null));
-    if (!body.success || !safeEqual(body.data.password, d.password)) {
+    const body = z
+      .object({ username: z.string().max(64).optional(), password: z.string().max(200) })
+      .safeParse(await c.req.json().catch(() => null));
+    const user = body.success ? d.users.authenticate(body.data.username?.trim() || null, body.data.password) : null;
+    if (!user) {
       const n = (f?.n ?? 0) + 1;
       failures.set(ip, { n, until: n >= 5 ? Date.now() + 60_000 : 0 });
-      return c.json<ApiError>({ error: "Contraseña incorrecta" }, 401);
+      return c.json<ApiError>({ error: "Usuario o contraseña incorrectos" }, 401);
     }
     failures.delete(ip);
-    setCookie(c, SESSION_COOKIE, d.signer.sign({ v: 1, iat: Date.now() }), {
-      httpOnly: true,
-      secure: d.secureCookies,
-      sameSite: "Lax",
-      path: "/",
-      maxAge: SESSION_MAX_AGE_S,
-    });
-    return c.json({ ok: true });
+    sessionCookie(c, user);
+    return c.json(me(user));
   });
 
   app.post("/auth/logout", (c) => {
@@ -77,11 +86,33 @@ export function createApp(d: AppDeps): Hono {
 
   app.use("*", async (c, next) => {
     const token = getCookie(c, SESSION_COOKIE);
-    if (!token || !d.signer.verify(token)) return c.json<ApiError>({ error: "unauthorized" }, 401);
+    const session = token ? d.signer.verify<{ v: number; uid?: number; sv?: number }>(token) : null;
+    // v1 cookies predate accounts: they belong to the first admin, who owned everything then.
+    const user = session ? d.users.get(session.v === 1 ? (d.users.admins()[0] ?? 0) : (session.uid ?? 0)) : null;
+    if (!user || (session!.v !== 1 && session!.sv !== user.sessionVersion)) {
+      return c.json<ApiError>({ error: "unauthorized" }, 401);
+    }
+    c.set("user", user);
     await next();
   });
 
-  app.get("/auth/me", (c) => c.json({ ok: true }));
+  app.get("/auth/me", (c) => c.json(me(c.get("user"))));
+
+  // Change your own username and/or password (current password required). Other devices with
+  // the old password are logged out; this one gets a fresh cookie.
+  app.post("/auth/account", async (c) => {
+    const body = z
+      .object({ currentPassword: z.string().max(200), username: z.string().max(64).optional(), password: z.string().max(200).optional() })
+      .parse(await c.req.json());
+    try {
+      const user = d.users.updateAccount(uid(c), body.currentPassword, { username: body.username, password: body.password });
+      sessionCookie(c, user);
+      return c.json(me(user));
+    } catch (e) {
+      if (e instanceof UserError) return c.json<ApiError>({ error: e.message }, 400);
+      throw e;
+    }
+  });
 
   // ── Sources & search ─────────────────────────────────────────────────
   app.get("/sources", async (c) => c.json(await d.registry.listSources()));
@@ -184,17 +215,17 @@ export function createApp(d: AppDeps): Hono {
   });
 
   app.get("/series/:id", async (c) => {
-    const detail = await d.library.detail(intParam(c, "id"));
+    const detail = await d.library.detail(intParam(c, "id"), uid(c));
     return detail ? c.json(detail) : c.json<ApiError>({ error: "Not found" }, 404);
   });
 
   app.post("/series/:id/library", async (c) => {
     const id = intParam(c, "id");
     const { inLibrary } = z.object({ inLibrary: z.boolean() }).parse(await c.req.json());
-    d.library.setInLibrary(id, inLibrary);
+    d.library.setInLibrary(uid(c), id, inLibrary);
     // Look for the same series on other sources in the background to fill chapter gaps.
     if (inLibrary) void d.updates.autoLink(id).catch((e) => log(`autolink ${id} failed: ${e}`));
-    return c.json(d.library.detailFromDb(id));
+    return c.json(d.library.detailFromDb(id, uid(c)));
   });
 
   // Open a series known only by its names (AniList: Tendencias, recommendations): find it on the
@@ -220,90 +251,90 @@ export function createApp(d: AppDeps): Hono {
   app.post("/series/:id/shelf", async (c) => {
     const id = intParam(c, "id");
     const { shelf } = z.object({ shelf: z.enum(["reading", "plan", "paused", "completed"]) }).parse(await c.req.json());
-    const wasIn = d.library.detailFromDb(id)?.inLibrary;
+    const wasIn = d.library.detailFromDb(id, uid(c))?.inLibrary;
     if (wasIn === undefined) return c.json<ApiError>({ error: "Not found" }, 404);
-    d.library.setShelf(id, shelf);
+    d.library.setShelf(uid(c), id, shelf);
     if (!wasIn) void d.updates.autoLink(id).catch((e) => log(`autolink ${id} failed: ${e}`));
-    return c.json(d.library.detailFromDb(id));
+    return c.json(d.library.detailFromDb(id, uid(c)));
   });
 
   app.post("/series/:id/scanlator", async (c) => {
     const id = intParam(c, "id");
     const { name } = z.object({ name: z.string().max(200).nullable() }).parse(await c.req.json());
-    d.library.setPreferredScanlator(id, name);
-    return c.json(d.library.detailFromDb(id));
+    d.library.setPreferredScanlator(uid(c), id, name);
+    return c.json(d.library.detailFromDb(id, uid(c)));
   });
 
   app.post("/series/:id/notify", async (c) => {
     const id = intParam(c, "id");
     const { enabled } = z.object({ enabled: z.boolean() }).parse(await c.req.json());
-    d.library.setNotify(id, enabled);
-    return c.json(d.library.detailFromDb(id));
+    d.library.setNotify(uid(c), id, enabled);
+    return c.json(d.library.detailFromDb(id, uid(c)));
   });
 
   app.post("/series/:id/autodownload", async (c) => {
     const id = intParam(c, "id");
     const { enabled } = z.object({ enabled: z.boolean() }).parse(await c.req.json());
-    d.library.setAutoDownload(id, enabled);
-    return c.json(d.library.detailFromDb(id));
+    d.library.setAutoDownload(uid(c), id, enabled);
+    return c.json(d.library.detailFromDb(id, uid(c)));
   });
 
   app.post("/series/:id/refresh", async (c) => {
     const id = intParam(c, "id");
     const res = await d.library.refresh(id);
-    return c.json({ ...res, detail: d.library.detailFromDb(id) });
+    return c.json({ ...res, detail: d.library.detailFromDb(id, uid(c)) });
   });
 
   app.post("/series/:id/lang", async (c) => {
     const id = intParam(c, "id");
     const { lang } = z.object({ lang: z.string().min(2).max(8) }).parse(await c.req.json());
-    d.library.setLang(id, normLang(lang));
-    return c.json(d.library.detailFromDb(id));
+    d.library.setLang(uid(c), id, normLang(lang));
+    return c.json(d.library.detailFromDb(id, uid(c)));
   });
 
   app.post("/series/:id/autolink", async (c) => {
     const id = intParam(c, "id");
     const added = await d.updates.autoLink(id);
-    return c.json({ added, detail: d.library.detailFromDb(id) });
+    return c.json({ added, detail: d.library.detailFromDb(id, uid(c)) });
   });
 
   app.post("/series/:id/sources", async (c) => {
     const id = intParam(c, "id");
     const body = z.object({ sourceKey: z.string(), externalId: z.string() }).parse(await c.req.json());
     await d.library.linkSource(id, body.sourceKey, body.externalId);
-    return c.json(d.library.detailFromDb(id));
+    return c.json(d.library.detailFromDb(id, uid(c)));
   });
 
   app.delete("/series/:id/sources/:linkId", (c) => {
     const id = intParam(c, "id");
     d.library.unlinkSource(id, intParam(c, "linkId"));
-    return c.json(d.library.detailFromDb(id));
+    return c.json(d.library.detailFromDb(id, uid(c)));
   });
 
   app.patch("/series/:id/sources/:linkId", async (c) => {
     const id = intParam(c, "id");
     const { priority } = z.object({ priority: z.number().int() }).parse(await c.req.json());
     d.library.setPriority(id, intParam(c, "linkId"), priority);
-    return c.json(d.library.detailFromDb(id));
+    return c.json(d.library.detailFromDb(id, uid(c)));
   });
 
   app.post("/series/:id/read", async (c) => {
     const id = intParam(c, "id");
     const body = z.object({ numbers: z.array(z.number()), read: z.boolean() }).parse(await c.req.json());
-    d.library.markRead(id, body.numbers, body.read);
-    return c.json(d.library.detailFromDb(id));
+    d.library.markRead(uid(c), id, body.numbers, body.read);
+    return c.json(d.library.detailFromDb(id, uid(c)));
   });
 
-  app.get("/library", (c) => c.json(d.library.listLibrary()));
-  app.get("/library/links", (c) => c.json(d.library.libraryLinks()));
-  app.get("/feed", (c) => c.json(d.library.feed()));
-  app.get("/history", (c) => c.json(d.library.history()));
+  app.get("/library", (c) => c.json(d.library.listLibrary(uid(c))));
+  app.get("/library/links", (c) => c.json(d.library.libraryLinks(uid(c))));
+  app.get("/feed", (c) => c.json(d.library.feed(uid(c))));
+  app.get("/history", (c) => c.json(d.library.history(uid(c))));
   app.get("/stats", (c) => {
     const { tz } = z.object({ tz: z.coerce.number().int().min(-840).max(840).default(0) }).parse(c.req.query());
-    return c.json(readingStats(d.library.database, tz));
+    return c.json(readingStats(d.library.database, uid(c), tz));
   });
   app.delete("/history/:id", (c) => {
-    d.library.forgetResume(intParam(c, "id"));
+    d.library.forgetResume(uid(c), intParam(c, "id"));
     return c.json({ ok: true });
   });
 
@@ -331,7 +362,7 @@ export function createApp(d: AppDeps): Hono {
   // ── Reading ──────────────────────────────────────────────────────────
   app.get("/chapters/:id/pages", async (c) => {
     try {
-      const res = await d.pages.chapterPages(intParam(c, "id"));
+      const res = await d.pages.chapterPages(intParam(c, "id"), uid(c));
       return res ? c.json(res) : c.json<ApiError>({ error: "Not found" }, 404);
     } catch (e) {
       if (e instanceof SourceUnavailableError) {
@@ -359,7 +390,7 @@ export function createApp(d: AppDeps): Hono {
         completed: z.boolean(),
       })
       .parse(await c.req.json()) satisfies ProgressUpdate;
-    d.library.saveProgress(body.chapterId, body.page, body.completed, body.offset);
+    d.library.saveProgress(uid(c), body.chapterId, body.page, body.completed, body.offset);
     return c.json({ ok: true });
   });
 
@@ -379,7 +410,7 @@ export function createApp(d: AppDeps): Hono {
     const sub = z
       .object({ endpoint: z.string().url(), keys: z.object({ p256dh: z.string(), auth: z.string() }) })
       .parse(await c.req.json());
-    d.push.subscribe(sub);
+    d.push.subscribe(uid(c), sub);
     return c.json({ ok: true });
   });
 
@@ -418,8 +449,3 @@ function intParam(c: Context, name: string): number {
   return n;
 }
 
-function safeEqual(a: string, b: string): boolean {
-  const ha = crypto.createHash("sha256").update(a).digest();
-  const hb = crypto.createHash("sha256").update(b).digest();
-  return crypto.timingSafeEqual(ha, hb);
-}

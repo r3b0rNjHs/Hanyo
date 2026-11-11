@@ -37,8 +37,9 @@ export class PageService {
    * A source whose images fail through the server is remembered for an hour, so later chapters
    * skip straight to what works. Progress is per chapter number, so switching is invisible.
    */
-  async chapterPages(chapterId: number): Promise<ChapterPages | null> {
-    const candidates = this.library.chapterCandidates(chapterId);
+  /** `uid` decides the language, preferred group, neighbours and resume point (0 = defaults). */
+  async chapterPages(chapterId: number, uid = 0): Promise<ChapterPages | null> {
+    const candidates = this.library.chapterCandidates(chapterId, uid);
     if (candidates.length === 0) return null;
     const failures: string[] = [];
 
@@ -52,7 +53,7 @@ export class PageService {
         const urls = await this.upstreamUrls(c.id);
         if (urls.length === 0) throw new Error("no devolvió páginas");
         await this.original(c.id, 0);
-        return this.build(c.id, urls, false);
+        return this.build(c.id, urls, false, uid);
       } catch (e) {
         const reason = describe(e);
         if (reason.startsWith("bloqueada")) this.blocked.set(sourceKey, Date.now() + BLOCK_MEMORY_MS);
@@ -65,7 +66,7 @@ export class PageService {
       if (!provider.directPageUrls) continue;
       try {
         const urls = await provider.directPageUrls(sourceId, externalId);
-        if (urls && urls.length > 0) return this.build(c.id, urls, true);
+        if (urls && urls.length > 0) return this.build(c.id, urls, true, uid);
       } catch (e) {
         failures.push(`${c.sourceName} (directo): ${describe(e)}`);
       }
@@ -81,12 +82,12 @@ export class PageService {
   }
 
   private sourceKeyOf(chapterId: number): string {
-    return this.library.chapterContext(chapterId)!.link.source_key;
+    return this.library.chapterContext(chapterId, 0)!.link.source_key;
   }
 
-  private build(chapterId: number, urls: string[], direct: boolean): ChapterPages {
-    const ctx = this.library.chapterContext(chapterId)!;
-    const basics = this.library.seriesBasics(ctx.link.series_id);
+  private build(chapterId: number, urls: string[], direct: boolean, uid: number): ChapterPages {
+    const ctx = this.library.chapterContext(chapterId, uid)!;
+    const basics = this.library.seriesBasics(ctx.link.series_id, uid);
     return {
       chapterId,
       seriesId: ctx.link.series_id,
@@ -230,7 +231,7 @@ export class PageService {
   }
 
   private providerFor(chapterId: number) {
-    const ctx = this.library.chapterContext(chapterId);
+    const ctx = this.library.chapterContext(chapterId, 0);
     if (!ctx) throw new PageNotFound();
     const { provider, sourceId } = this.registry.resolve(ctx.link.source_key);
     return { provider, sourceId, externalId: ctx.chapter.external_id };
