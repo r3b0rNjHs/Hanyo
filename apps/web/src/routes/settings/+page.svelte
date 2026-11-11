@@ -11,6 +11,7 @@
   import { currentTheme, setTheme, type Theme } from "$lib/theme";
   import type { ServerStats, SourceHealth } from "@hanyo/types";
   import { timeAgo } from "$lib/format";
+  import { install, isIos, promptInstall } from "$lib/install.svelte";
 
   let standalone = $state(false);
   let push = $state<"unsupported" | "disabled-server" | "off" | "on" | "denied">("off");
@@ -234,14 +235,34 @@
     </div>
   </section>
 
-  {#if !standalone}
-    <section class="rounded-[var(--radius-card)] border border-accent/40 bg-accent/10 p-4 text-sm">
-      <p class="font-semibold text-accent-soft">Instala Hanyo en tu iPhone</p>
-      <p class="mt-1 text-soft">
-        En Safari pulsa <b>Compartir</b> → <b>Añadir a pantalla de inicio</b>. Así las descargas no se borran y
-        puedes recibir avisos de capítulos nuevos.
-      </p>
-    </section>
+  {#if !standalone && !install.installed}
+    {#if install.available}
+      <!-- Chrome / Edge (desktop and Android) can install it with one click. -->
+      <section class="flex items-center gap-4 rounded-[var(--radius-card)] border border-accent/40 bg-accent/10 p-4 text-sm">
+        <img src="/icons/icon-192.png" alt="" class="h-12 w-12 shrink-0 rounded-[14px]" />
+        <span class="min-w-0 flex-1">
+          <span class="block font-semibold text-accent-soft">Instala Hanyo como aplicación</span>
+          <span class="block text-soft">Con su propia ventana e icono, y funcionando sin conexión.</span>
+        </span>
+        <button class="h-10 shrink-0 rounded-full bg-accent px-4 font-bold text-on-accent" onclick={() => promptInstall()}>Instalar</button>
+      </section>
+    {:else if isIos()}
+      <section class="rounded-[var(--radius-card)] border border-accent/40 bg-accent/10 p-4 text-sm">
+        <p class="font-semibold text-accent-soft">Instala Hanyo en tu iPhone</p>
+        <p class="mt-1 text-soft">
+          En Safari pulsa <b>Compartir</b> → <b>Añadir a pantalla de inicio</b>. Así las descargas no se borran y
+          puedes recibir avisos de capítulos nuevos.
+        </p>
+      </section>
+    {:else}
+      <section class="rounded-[var(--radius-card)] border border-line bg-surface p-4 text-sm">
+        <p class="font-semibold">Instala Hanyo en este ordenador</p>
+        <p class="mt-1 text-soft">
+          En Chrome o Edge, pulsa el icono de instalar en la barra de direcciones (o el menú ⋮ → <b>Instalar Hanyo</b>).
+          En Safari para Mac: <b>Archivo</b> → <b>Añadir al Dock</b>.
+        </p>
+      </section>
+    {/if}
   {/if}
 
   {#if session.user?.isAdmin && accounts}
