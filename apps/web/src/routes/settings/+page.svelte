@@ -123,6 +123,57 @@
       if (u && !newUsername) newUsername = u.username;
     });
   });
+  // ── Accounts (admins) ──
+  type Account = Awaited<ReturnType<typeof api.adminUsers>>[number];
+  let accounts = $state<Account[] | null>(null);
+  let invites = $state<{ token: string; createdAt: number; expiresAt: number }[]>([]);
+  let inviteMsg = $state<string | null>(null);
+  let confirmDelete = $state<Account | null>(null);
+  const inviteUrl = (t: string) => `${location.origin}/invite/${t}`;
+  $effect(() => {
+    if (!session.user?.isAdmin) return;
+    void reloadAccounts();
+  });
+  async function reloadAccounts() {
+    [accounts, invites] = await Promise.all([api.adminUsers(), api.invites()]).catch(() => [accounts, invites] as const);
+  }
+  async function newInvite() {
+    const inv = await api.createInvite();
+    await reloadAccounts();
+    await shareInvite(inv.token);
+  }
+  async function shareInvite(token: string) {
+    const url = inviteUrl(token);
+    try {
+      if (navigator.share) await navigator.share({ title: "Hanyo", text: "Te invito a Hanyo", url });
+      else {
+        await navigator.clipboard.writeText(url);
+        inviteMsg = "Enlace copiado";
+      }
+    } catch {
+      // Share sheet closed: nothing to do.
+    }
+  }
+  async function copyInvite(token: string) {
+    await navigator.clipboard.writeText(inviteUrl(token)).catch(() => undefined);
+    inviteMsg = "Enlace copiado";
+    setTimeout(() => (inviteMsg = null), 2000);
+  }
+  async function revoke(token: string) {
+    await api.revokeInvite(token).catch(() => undefined);
+    await reloadAccounts();
+  }
+  async function deleteAccount(a: Account) {
+    confirmDelete = null;
+    try {
+      await api.deleteUser(a.id);
+    } catch (e) {
+      inviteMsg = (e as Error).message;
+    }
+    await reloadAccounts();
+  }
+  const fmtDate = (ms: number) => new Date(ms).toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+
   async function saveAccount(e: SubmitEvent) {
     e.preventDefault();
     accountBusy = true;
@@ -188,6 +239,58 @@
         puedes recibir avisos de capítulos nuevos.
       </p>
     </section>
+  {/if}
+
+  {#if session.user?.isAdmin && accounts}
+    <section>
+      <h2 class="mb-2 px-1 text-xs font-semibold tracking-[0.08em] text-muted uppercase">Cuentas</h2>
+      <div class="rounded-[var(--radius-card)] bg-surface text-sm">
+        <ul class="divide-y divide-fg/5">
+          {#each accounts as a (a.id)}
+            <li class="flex items-center gap-3 px-4 py-2.5">
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-raised text-xs font-bold uppercase">{a.username.slice(0, 1)}</span>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate font-semibold">{a.username}{a.id === session.user.id ? " (tú)" : ""}</span>
+                <span class="block text-xs text-muted">
+                  {a.isAdmin ? "Administrador · " : ""}{a.librarySize} series{a.lastReadAt ? ` · leyó el ${fmtDate(a.lastReadAt)}` : ""}
+                </span>
+              </span>
+              {#if a.id !== session.user.id}
+                <button class="h-8 rounded-full px-3 text-xs font-semibold text-danger" onclick={() => (confirmDelete = a)}>Eliminar</button>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+        {#if invites.length}
+          <div class="border-t border-fg/5 px-4 py-2.5">
+            <p class="text-xs font-semibold text-muted">Invitaciones pendientes</p>
+            {#each invites as inv (inv.token)}
+              <div class="mt-1.5 flex items-center gap-2">
+                <span class="min-w-0 flex-1 truncate text-xs text-soft">Caduca el {fmtDate(inv.expiresAt)}</span>
+                <button class="h-8 rounded-full bg-raised px-3 text-xs font-semibold" onclick={() => copyInvite(inv.token)}>Copiar</button>
+                <button class="h-8 rounded-full px-3 text-xs font-semibold text-danger" onclick={() => revoke(inv.token)}>Anular</button>
+              </div>
+            {/each}
+          </div>
+        {/if}
+        <button class="flex w-full items-center justify-center gap-2 border-t border-fg/5 py-3 font-semibold text-accent-soft" onclick={newInvite}>
+          <Icon name="plus" size={16} stroke={2.4} /> Invitar a alguien
+        </button>
+        {#if inviteMsg}<p class="px-4 pb-3 text-center text-xs text-muted" role="status">{inviteMsg}</p>{/if}
+      </div>
+      <p class="mt-1.5 px-1 text-xs text-faint">El enlace es de un solo uso y caduca en 7 días. Cada cuenta tiene su biblioteca y su progreso; nadie ve lo de los demás.</p>
+    </section>
+  {/if}
+
+  {#if confirmDelete}
+    {@const a = confirmDelete}
+    <button class="fixed inset-0 z-40 bg-black/60" onclick={() => (confirmDelete = null)} aria-label="Cerrar"></button>
+    <div class="pb-safe fixed inset-x-0 bottom-0 z-50 rounded-t-[28px] bg-raised p-5" role="alertdialog" aria-label="Eliminar cuenta">
+      <p class="font-display text-lg font-semibold">¿Eliminar la cuenta de {a.username}?</p>
+      <p class="mt-1 text-sm text-muted">Se borran su biblioteca, listas, progreso e historial. Las series siguen disponibles para los demás.</p>
+      <button class="mt-4 h-12 w-full rounded-full bg-danger font-bold text-white" onclick={() => deleteAccount(a)}>Eliminar cuenta</button>
+      <button class="mt-1 h-12 w-full rounded-full font-semibold text-muted" onclick={() => (confirmDelete = null)}>Cancelar</button>
+    </div>
   {/if}
 
   <section>
