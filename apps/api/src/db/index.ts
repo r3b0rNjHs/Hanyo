@@ -125,6 +125,10 @@ const MIGRATIONS: string[] = [
     alerted    INTEGER NOT NULL DEFAULT 0
   );
   `,
+  // v10: preferred scanlation group per series.
+  `
+  ALTER TABLE series ADD COLUMN preferred_scanlator TEXT;
+  `,
 ];
 
 export function openDb(dataDir: string): DB {

@@ -226,6 +226,13 @@ export function createApp(d: AppDeps): Hono {
     return c.json(d.library.detailFromDb(id));
   });
 
+  app.post("/series/:id/scanlator", async (c) => {
+    const id = intParam(c, "id");
+    const { name } = z.object({ name: z.string().max(200).nullable() }).parse(await c.req.json());
+    d.library.setPreferredScanlator(id, name);
+    return c.json(d.library.detailFromDb(id));
+  });
+
   app.post("/series/:id/notify", async (c) => {
     const id = intParam(c, "id");
     const { enabled } = z.object({ enabled: z.boolean() }).parse(await c.req.json());
