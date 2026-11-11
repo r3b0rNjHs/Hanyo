@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { devices, expect, test, type Page } from "@playwright/test";
 
 async function login(page: Page) {
   await page.goto("/login");
@@ -282,4 +282,32 @@ test("settings shows who is logged in, and logging out asks for an account", asy
   await page.fill("input[type=password]", "wrong-password");
   await page.click('button:has-text("Entrar")');
   await expect(page.getByText("Usuario o contraseña incorrectos")).toBeVisible();
+});
+
+test("invite someone: they get their own empty library, and the admin can remove them", async ({ page, browser }) => {
+  await login(page);
+  await page.goto("/settings");
+  await page.getByRole("button", { name: "Invitar a alguien" }).click();
+  await expect(page.getByText("Invitaciones pendientes")).toBeVisible();
+  const [invite] = await (await page.request.get("/api/admin/invites")).json();
+
+  const guest = await (await browser.newContext({ ...devices["iPhone 15 Pro"], baseURL: page.url().replace(/\/settings$/, "") })).newPage();
+  await guest.goto(`/invite/${invite.token}`);
+  await guest.fill("#username", "marta");
+  await guest.fill("#password", "marta-password");
+  await guest.fill("#repeat", "marta-password");
+  await guest.getByRole("button", { name: "Crear mi cuenta" }).click();
+  await guest.waitForURL(/\/$/);
+  // Not the admin's library.
+  await expect(guest.getByText("Empieza tu biblioteca")).toBeVisible();
+  await guest.goto(`/invite/${invite.token}`);
+  await expect(guest.getByText("ya se ha usado o ha caducado")).toBeVisible();
+
+  await page.reload();
+  const row = page.locator("li", { hasText: "marta" });
+  await row.getByRole("button", { name: "Eliminar" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Eliminar cuenta" }).click();
+  await expect(page.locator("li", { hasText: "marta" })).toHaveCount(0);
+  await guest.goto("/");
+  await guest.waitForURL(/\/login/);
 });
