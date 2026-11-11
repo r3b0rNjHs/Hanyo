@@ -30,6 +30,8 @@ switching sources never loses your place. Each account has its own library and p
   person reads is already linked and cached for the next, and sources are not asked twice.
 - New accounts join through single-use invite links; admins manage accounts from the app
   (see [Accounts](#accounts)).
+- Recommend a series to other accounts, with a short note; it reaches them as a notification and
+  in their *Novedades*. Only usernames are visible to other accounts, never libraries.
 
 **Library**
 - Reading lists: *Leyendo*, *Pendiente*, *En pausa*, *Terminada*, with filters and sorting.
