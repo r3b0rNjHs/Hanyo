@@ -1,11 +1,11 @@
 # Hanyo
 
 A small, self-hosted library and offline reader for **manhwa, manga and manhua**, installed on the
-iPhone as a PWA.
+iPhone as a PWA, for its owner and a few invited people.
 
 Search many sources at once, keep your series in one library, get notified when new chapters come
 out, and download chapters to read with no connection. Your progress is kept per chapter number, so
-switching sources never loses your place.
+switching sources never loses your place. Each account has its own library and progress.
 
 <p>
   <img src="docs/screenshots/readme/library.jpg" width="160" alt="Library" />
@@ -20,15 +20,19 @@ switching sources never loses your place.
 ## Features
 
 **Accounts**
-- Several people, each with their own library, lists, progress, history, stats and notifications.
-  The catalogue and the server's image cache are shared, so a series one person reads is already
-  warm for the next. New accounts join through single-use invite links.
+- Each person has their own library, lists, language and translation-group choices, read marks,
+  history, stats and notifications. Nobody sees anyone else's.
+- The catalogue (series, sources, chapters) and the server's image cache are shared, so a series one
+  person reads is already linked and cached for the next, and sources are not asked twice.
+- New accounts join through single-use invite links; admins manage accounts from the app
+  (see [Accounts](#accounts)).
 
 **Library**
 - Reading lists: *Leyendo*, *Pendiente*, *En pausa*, *Terminada*, with filters and sorting.
 - One series, many sources: chapters are merged by number, the preferred source wins and the rest
   fill the gaps. Sources are linked automatically, including when new sources are installed.
 - English or Spanish per series, switchable without losing progress.
+- Preferred source and preferred translation group per series.
 - New-chapter checks every few hours, with push notifications (per series, can be turned off).
 
 **Discover**
@@ -45,6 +49,7 @@ switching sources never loses your place.
 - Vertical strip reader for webtoons and a paged reader (right-to-left or left-to-right) for
   manga, with pinch and double-tap zoom.
 - Resumes at the exact spot, even inside very tall strip pages.
+- The next chapter is fetched while you read, so it opens instantly, even if the connection drops.
 - Chapter list, brightness, keep-awake and page counter inside the reader.
 
 **Offline**
@@ -53,10 +58,30 @@ switching sources never loses your place.
 - Optional automatic download of the next unread chapters whenever the app is opened.
 - The library, downloaded chapters and reading progress all work in airplane mode. Progress made
   offline syncs later.
+- Free space by deleting one chapter, a series, everything already read, or all downloads.
 
-**Server care**
-- Daily source health check that pushes a notification when a source breaks or comes back.
-- Light, dark and system themes; server stats in settings.
+**Stats and settings**
+- Reading stats: streak, chapters per week, month and year, an activity calendar, most-read series
+  and favourite genres.
+- Light, dark and system themes.
+- Daily source health check that notifies the admins when a source breaks or comes back, plus
+  server stats in settings.
+
+## Accounts
+
+- **The admin.** On first start the existing data belongs to an admin account (`admin`, or
+  `HANYO_ADMIN_USER`) whose password is `HANYO_PASSWORD`. Username and password can then be changed in
+  *Ajustes → Cuenta*. Changing the password signs out every other device.
+- **Inviting someone.** *Ajustes → Cuentas → Invitar a alguien* opens the share sheet with a link.
+  It works once and expires after 7 days; pending invites can be copied again or revoked. The person
+  picks a username and password and starts with an empty library.
+- **Managing accounts.** Admins see every account with its library size and last reading day, and
+  can delete one. That removes its personal data and ends its sessions at once. The last admin can't
+  be deleted.
+- **Privacy on a shared phone.** Logging out clears the personal data the app cached on the device
+  (library, history, pending progress). Downloaded chapters stay until removed in *Descargas*.
+- **Security.** Passwords are stored as scrypt hashes, login and invite attempts are rate-limited, and
+  session cookies are signed and carry a version that a password change invalidates.
 
 ## How it works
 
@@ -100,10 +125,11 @@ More detail: [architecture](docs/architecture.md) · [decisions (ADRs)](docs/dec
 ```
 apps/api/src/
   providers/   mangadex, suwayomi, demo (offline test source), registry
-  services/    library, pages, updates, anilist, health, image-cache, push, compress
+  services/    library, users, pages, updates, anilist, health, stats, image-cache, push, compress
   app.ts       HTTP routes under /api (cookie auth)
 apps/web/src/
-  routes/      library, updates, explore, search, series, reader, downloads, settings, login
+  routes/      library, updates, stats, explore, search, series, reader, downloads, settings,
+               login, invite
   lib/         reader views, offline downloads, components, API client
   e2e/         Playwright tests (apps/web/e2e)
 deploy/        VPS setup and deploy scripts, docker-compose (+ WARP override), Caddy site, extensions list
@@ -117,7 +143,7 @@ Requirements: Node 22 and npm. Docker is only needed to try Suwayomi sources loc
 ```bash
 npm install
 cp .env.example .env
-npm run dev       # API on http://localhost:3101 (dev password: "hanyo")
+npm run dev       # API on http://localhost:3101 (dev login: admin / hanyo)
 npm run dev:web   # PWA on http://localhost:5173 (proxies /api)
 ```
 
@@ -157,8 +183,9 @@ npm run build && npm run e2e -w apps/web  # end-to-end (Playwright, offline demo
 ```
 
 The end-to-end suite runs the real API and the built PWA against a demo source with generated
-pages. It covers search, reading lists, strip and paged reading, downloads read offline,
-Novedades, history, Explore and settings. CI runs everything on every pull request.
+pages. It covers search, reading lists, strip and paged reading, the prefetched next chapter and
+downloads read offline, Novedades, history, stats, Explore, settings, and accounts (login, invites,
+isolated libraries, deleting an account). CI runs everything on every pull request.
 
 ## Deployment
 
@@ -175,10 +202,11 @@ hanyo-api, and Docker runs only Suwayomi and FlareSolverr.
 
 ## Sources and responsible use
 
-Hanyo is a personal reader for one user. It hosts no content and has no public catalogue. It
-respects the MangaDex API rate limits and reports MangaDex@Home delivery as required, keeps the
-image cache size-capped, and checks sources once a day. Please support the official releases of
-the series you enjoy.
+Hanyo is a private reader for its owner and a few invited people; there is no sign-up and no public
+catalogue, and it hosts no content of its own. It respects the MangaDex API rate limits and reports
+MangaDex@Home delivery as required, fetches each page once for everyone (shared cache), keeps the
+cache size-capped, and checks sources once a day. Please support the official releases of the
+series you enjoy.
 
 ## Documentation
 
