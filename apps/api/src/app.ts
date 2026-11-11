@@ -123,15 +123,16 @@ export function createApp(d: AppDeps): Hono {
   // Popular / latest per source. Cached a few minutes: the Explore tab is browsed page by page
   // and going back and forth shouldn't hit the source again.
   app.get("/explore/trending", async (c) => {
-    const { origin, page, genre } = z
+    const { origin, page, genre, sort } = z
       .object({
         origin: z.enum(["KR", "JP", "CN", "all"]).default("KR"),
         page: z.coerce.number().int().min(1).max(50).default(1),
         genre: z.string().regex(/^[A-Za-z -]{2,30}$/).optional(),
+        sort: z.enum(["trending", "popular", "score"]).default("trending"),
       })
       .parse(c.req.query());
     try {
-      return c.json(await d.titles.trending(origin, page, genre));
+      return c.json(await d.titles.trending(origin, page, genre, sort));
     } catch (e) {
       return c.json<ApiError>({ error: `AniList: ${(e as Error).message}` }, 502);
     }
@@ -193,6 +194,16 @@ export function createApp(d: AppDeps): Hono {
     // Look for the same series on other sources in the background to fill chapter gaps.
     if (inLibrary) void d.updates.autoLink(id).catch((e) => log(`autolink ${id} failed: ${e}`));
     return c.json(d.library.detailFromDb(id));
+  });
+
+  // Open a series known only by its names (AniList: Tendencias, recommendations): find it on the
+  // sources, open the best match and link the rest. 404 when no source has it.
+  app.post("/series/resolve", async (c) => {
+    const { title, titles } = z
+      .object({ title: z.string().min(1).max(300), titles: z.array(z.string().max(300)).max(40).default([]) })
+      .parse(await c.req.json());
+    const id = await d.updates.openByNames(title, titles);
+    return id === null ? c.json<ApiError>({ error: "No está en tus fuentes" }, 404) : c.json({ id });
   });
 
   app.get("/series/:id/recommendations", async (c) => {

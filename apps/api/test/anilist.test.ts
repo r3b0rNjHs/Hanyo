@@ -64,7 +64,7 @@ describe("AniListTitles.trending", () => {
       );
     }) as unknown as typeof fetch;
     const r = await new AniListTitles(fake).trending("KR", 2, "Romance");
-    expect(sent!.variables).toEqual({ page: 2, country: "KR", genre: "Romance" });
+    expect(sent!.variables).toEqual({ page: 2, sort: ["TRENDING_DESC"], country: "KR", genre: "Romance" });
     expect(r.hasNextPage).toBe(true);
     expect(r.items[0]!.cluster.title).toBe("Return of the Blossoming Blade");
     expect(r.items[0]!.coverUrl).toBe("https://s4.anilist.co/c.jpg");

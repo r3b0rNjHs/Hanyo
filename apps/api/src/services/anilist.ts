@@ -1,4 +1,4 @@
-import type { RecommendationsResponse, TitleCluster, TrendingOrigin, TrendingResponse } from "@hanyo/types";
+import type { RecommendationsResponse, TitleCluster, TrendingOrigin, TrendingResponse, TrendingSort } from "@hanyo/types";
 import { RateLimiter } from "../lib/ratelimit.js";
 import { normalizeTitle } from "../lib/text.js";
 
@@ -13,10 +13,12 @@ const QUERY = `query ($search: String) {
   }
 }`;
 
-const TRENDING = `query ($page: Int, $country: CountryCode, $genre: String) {
+const SORTS: Record<TrendingSort, string> = { trending: "TRENDING_DESC", popular: "POPULARITY_DESC", score: "SCORE_DESC" };
+
+const TRENDING = `query ($page: Int, $country: CountryCode, $genre: String, $sort: [MediaSort]) {
   Page(page: $page, perPage: 30) {
     pageInfo { hasNextPage }
-    media(type: MANGA, sort: TRENDING_DESC, countryOfOrigin: $country, genre: $genre) {
+    media(type: MANGA, sort: $sort, countryOfOrigin: $country, genre: $genre) {
       id countryOfOrigin popularity
       title { romaji english native }
       synonyms
@@ -69,15 +71,21 @@ export class AniListTitles {
   private readonly trendingCache = new Map<string, { at: number; value: TrendingResponse }>();
 
   /** AniList "trending" (recent activity), optionally by country of origin. Cached 30 min. */
-  async trending(origin: TrendingOrigin, page: number, genre?: string): Promise<TrendingResponse> {
-    const key = `${origin}|${genre ?? ""}|${page}`;
+  async trending(origin: TrendingOrigin, page: number, genre?: string, sort: TrendingSort = "trending"): Promise<TrendingResponse> {
+    const key = `${origin}|${genre ?? ""}|${sort}|${page}`;
     const hit = this.trendingCache.get(key);
     if (hit && Date.now() - hit.at < 30 * 60_000) return hit.value;
     const res = await this.limiter.schedule(() =>
       this.fetchImpl(ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ query: TRENDING, variables: { page, ...(origin === "all" ? {} : { country: origin }), ...(genre ? { genre } : {}) } }),
+        body: JSON.stringify({ query: TRENDING, variables: {
+            page,
+            sort: [SORTS[sort]],
+            ...(origin === "all" ? {} : { country: origin }),
+            ...(genre ? { genre } : {}),
+          },
+        }),
         signal: AbortSignal.timeout(8000),
       }),
     );
