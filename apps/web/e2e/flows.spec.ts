@@ -257,3 +257,15 @@ test("reading stats count the chapters read in the earlier tests", async ({ page
   expect(Number(value.trim())).toBeGreaterThanOrEqual(2);
   await expect(page.getByRole("gridcell").last()).toBeVisible();
 });
+
+test("delete every download at once, after confirming", async ({ page }) => {
+  await login(page);
+  await page.goto("/");
+  await openSeries(page, "Demo Strip");
+  await page.locator('section[aria-label="Todos los capítulos"]').getByRole("button", { name: "Descargar Capítulo 2" }).click();
+  await expect(page.getByRole("button", { name: "Gestionar descargas" })).toContainText("descargados", { timeout: 30_000 });
+  await page.goto("/downloads");
+  await page.getByRole("button", { name: "Eliminar todas las descargas" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Eliminar todo" }).click();
+  await expect(page.getByText("Nada descargado todavía")).toBeVisible();
+});

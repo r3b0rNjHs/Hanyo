@@ -31,6 +31,17 @@
     readIds = ids;
   }
 
+  let confirmAll = $state(false);
+  let clearingAll = $state(false);
+  async function clearAll() {
+    clearingAll = true;
+    downloads.cancelAll();
+    await downloads.remove([...downloads.records.keys()]);
+    readIds = [];
+    clearingAll = false;
+    confirmAll = false;
+  }
+
   async function clearRead() {
     clearing = true;
     await downloads.remove(readIds);
@@ -50,7 +61,34 @@
   });
 </script>
 
-<PageHeader title="Descargas" subtitle="{formatBytes(downloads.totalBytes)} en este dispositivo" />
+<PageHeader title="Descargas" subtitle="{formatBytes(downloads.totalBytes)} en este dispositivo">
+  {#snippet actions()}
+    {#if downloads.records.size > 0}
+      <button
+        class="flex h-11 w-11 items-center justify-center rounded-full bg-raised text-danger active:bg-line"
+        onclick={() => (confirmAll = true)}
+        aria-label="Eliminar todas las descargas"
+      >
+        <Icon name="trash" size={19} stroke={2} />
+      </button>
+    {/if}
+  {/snippet}
+</PageHeader>
+
+{#if confirmAll}
+  <button class="fixed inset-0 z-40 bg-black/60" onclick={() => (confirmAll = false)} aria-label="Cerrar"></button>
+  <div class="pb-safe fixed inset-x-0 bottom-0 z-50 rounded-t-[28px] bg-raised p-5" role="alertdialog" aria-label="Eliminar todas las descargas">
+    <p class="font-display text-lg font-semibold">¿Eliminar todas las descargas?</p>
+    <p class="mt-1 text-sm text-muted">
+      Se borrarán {downloads.records.size} {downloads.records.size === 1 ? "capítulo" : "capítulos"} ({formatBytes(downloads.totalBytes)}) de este dispositivo
+      {downloads.queue.length ? " y se cancelará la cola" : ""}. Tu progreso de lectura no se pierde.
+    </p>
+    <button class="mt-4 h-12 w-full rounded-full bg-danger font-bold text-white disabled:opacity-60" disabled={clearingAll} onclick={clearAll}>
+      {clearingAll ? "Eliminando…" : "Eliminar todo"}
+    </button>
+    <button class="mt-1 h-12 w-full rounded-full font-semibold text-muted" onclick={() => (confirmAll = false)}>Cancelar</button>
+  </div>
+{/if}
 
 {#if quota}
   <div class="mx-4 mb-4">
