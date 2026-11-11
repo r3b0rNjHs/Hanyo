@@ -15,9 +15,12 @@ import { SourceUnavailableError, type PageService } from "./services/pages.js";
 import type { PushService } from "./services/push.js";
 import type { UpdateService } from "./services/updates.js";
 import { UserError, type User, type UserService } from "./services/users.js";
+import type { RecommendationService } from "./services/recommendations.js";
 
 export interface AppDeps {
   users: UserService;
+  /** Optional (tests): recommend a series to another account. */
+  recommendations?: RecommendationService;
   signer: Signer;
   secureCookies: boolean;
   registry: ProviderRegistry;
@@ -266,6 +269,7 @@ export function createApp(d: AppDeps) {
     const id = intParam(c, "id");
     const { inLibrary } = z.object({ inLibrary: z.boolean() }).parse(await c.req.json());
     d.library.setInLibrary(uid(c), id, inLibrary);
+    if (inLibrary) d.recommendations?.dismissForSeries(uid(c), id);
     // Look for the same series on other sources in the background to fill chapter gaps.
     if (inLibrary) void d.updates.autoLink(id).catch((e) => log(`autolink ${id} failed: ${e}`));
     return c.json(d.library.detailFromDb(id, uid(c)));
@@ -297,6 +301,7 @@ export function createApp(d: AppDeps) {
     const wasIn = d.library.detailFromDb(id, uid(c))?.inLibrary;
     if (wasIn === undefined) return c.json<ApiError>({ error: "Not found" }, 404);
     d.library.setShelf(uid(c), id, shelf);
+    d.recommendations?.dismissForSeries(uid(c), id);
     if (!wasIn) void d.updates.autoLink(id).catch((e) => log(`autolink ${id} failed: ${e}`));
     return c.json(d.library.detailFromDb(id, uid(c)));
   });
@@ -371,6 +376,32 @@ export function createApp(d: AppDeps) {
   app.get("/library", (c) => c.json(d.library.listLibrary(uid(c))));
   app.get("/library/links", (c) => c.json(d.library.libraryLinks(uid(c))));
   app.get("/feed", (c) => c.json(d.library.feed(uid(c))));
+
+  // ── Recommendations between accounts ─────────────────────────────────
+  app.get("/users/directory", (c) => c.json(d.recommendations?.directory(uid(c)) ?? []));
+  app.get("/recommendations", (c) => c.json(d.recommendations?.incoming(uid(c)) ?? []));
+  app.post("/recommendations/seen", (c) => {
+    d.recommendations?.markSeen(uid(c));
+    return c.json({ ok: true });
+  });
+  app.post("/recommendations/:id/dismiss", (c) => {
+    d.recommendations?.dismiss(uid(c), intParam(c, "id"));
+    return c.json({ ok: true });
+  });
+  app.post("/series/:id/recommend", async (c) => {
+    const id = intParam(c, "id");
+    const body = z.object({ to: z.array(z.number().int()).min(1).max(50), note: z.string().max(200).nullish() }).parse(await c.req.json());
+    const title = d.library.title(id);
+    if (!title || !d.recommendations) return c.json<ApiError>({ error: "Not found" }, 404);
+    const me = c.get("user") as User;
+    const sent = d.recommendations.send(me.id, body.to, id, body.note ?? null);
+    if (sent.length) {
+      void d.push
+        .notify({ title: `${me.username} te recomienda ${title}`, body: body.note?.trim() || "Toca para verla", url: `/series/${id}` }, sent)
+        .catch(() => undefined);
+    }
+    return c.json({ sent: sent.length });
+  });
   app.get("/history", (c) => c.json(d.library.history(uid(c))));
   app.get("/stats", (c) => {
     const { tz } = z.object({ tz: z.coerce.number().int().min(-840).max(840).default(0) }).parse(c.req.query());
