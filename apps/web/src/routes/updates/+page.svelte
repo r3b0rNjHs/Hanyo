@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { FeedItem, HistoryItem } from "@hanyo/types";
+  import type { FeedItem, HistoryItem, Recommendation } from "@hanyo/types";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import SwipeRow from "$lib/components/SwipeRow.svelte";
@@ -22,6 +22,19 @@
   async function forget(it: HistoryItem) {
     history = (history ?? []).filter((h) => h.seriesId !== it.seriesId);
     await api.forgetHistory(it.seriesId).catch(() => undefined);
+  }
+
+  // Recommendations from other accounts, on top of the new-chapters view.
+  let recs = $state<Recommendation[]>([]);
+  $effect(() => {
+    api.incomingRecommendations().then((r) => {
+      recs = r;
+      if (r.some((x) => !x.seen)) void api.recommendationsSeen().catch(() => undefined);
+    }, () => undefined);
+  });
+  async function dismissRec(id: number) {
+    recs = recs.filter((r) => r.id !== id);
+    await api.dismissRecommendation(id).catch(() => undefined);
   }
 
   let items = $state<FeedItem[] | null>(null);
@@ -153,6 +166,27 @@
     >{label}</button>
   {/each}
 </div>
+
+{#if view === "new" && recs.length}
+  <section class="mb-2" aria-label="Recomendado para ti">
+    <h2 class="px-5 pt-1 pb-2 text-xs font-semibold tracking-[0.08em] text-muted uppercase">Recomendado para ti</h2>
+    <ul class="no-scrollbar flex gap-3 overflow-x-auto px-5 pb-1">
+      {#each recs as r (r.id)}
+        <li class="relative flex w-[270px] shrink-0 gap-3 rounded-[var(--radius-card)] bg-surface p-2.5 pr-8">
+          <a href="/series/{r.seriesId}" class="w-14 shrink-0"><Cover src={r.coverUrl} alt={r.seriesTitle} rounded="rounded-[10px]" /></a>
+          <a href="/series/{r.seriesId}" class="min-w-0 flex-1">
+            <span class="block text-xs text-accent-soft">De {r.from}{r.seen ? "" : " · nueva"}</span>
+            <span class="line-clamp-2 text-[15px] leading-snug font-semibold">{r.seriesTitle}</span>
+            {#if r.note}<span class="mt-0.5 line-clamp-2 text-xs text-muted">“{r.note}”</span>{/if}
+          </a>
+          <button class="absolute top-1.5 right-1.5 flex h-8 w-8 items-center justify-center rounded-full text-muted" onclick={() => dismissRec(r.id)} aria-label="Descartar recomendación de {r.seriesTitle}">
+            <Icon name="close" size={15} stroke={2.4} />
+          </button>
+        </li>
+      {/each}
+    </ul>
+  </section>
+{/if}
 
 {#if view === "history"}
   <a href="/stats" class="mx-5 mt-1 mb-2 flex items-center gap-3 rounded-[var(--radius-card)] bg-surface px-4 py-3">
