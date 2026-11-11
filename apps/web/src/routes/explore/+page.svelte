@@ -307,9 +307,9 @@
 
 
 
-<div class="mt-4 grid grid-cols-3 gap-x-3 gap-y-4 px-5">
+<div class="mt-4 grid grid-cols-3 gap-x-3 gap-y-4 px-5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
   {#each hits as h (h.id)}
-    <button class="relative min-w-0 self-start text-left" onclick={() => open(h)} disabled={opening !== null}>
+    <button class="relative min-w-0 self-start text-left transition-transform duration-150 [@media(hover:hover)]:hover:-translate-y-0.5" onclick={() => open(h)} disabled={opening !== null}>
       <Cover src={h.coverUrl} alt={h.title} />
       {#if ownedId(h) !== undefined}
         <span class="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-accent text-on-accent" aria-label="En tu biblioteca">

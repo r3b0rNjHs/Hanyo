@@ -274,8 +274,9 @@ test("delete every download at once, after confirming", async ({ page }) => {
 test("settings shows who is logged in, and logging out asks for an account", async ({ page }) => {
   await login(page);
   await page.goto("/settings");
-  await expect(page.getByText("Administrador")).toBeVisible();
-  await expect(page.locator("section", { hasText: "Cuenta" }).getByText("admin", { exact: true })).toBeVisible();
+  const account = page.locator("section").filter({ has: page.getByRole("heading", { name: "Cuenta", exact: true }) });
+  await expect(account.getByText("Administrador", { exact: true })).toBeVisible();
+  await expect(account.getByText("admin", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
   await page.waitForURL(/\/login/);
   await page.fill("#username", "admin");

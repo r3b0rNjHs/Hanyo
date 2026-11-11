@@ -40,7 +40,7 @@
     "h-14 w-full rounded-full bg-raised px-5 text-base outline-none placeholder:text-faint focus:ring-2 focus:ring-accent/60";
 </script>
 
-<div class="pt-safe flex min-h-dvh flex-col justify-center px-7">
+<div class="pt-safe mx-auto flex min-h-dvh max-w-md flex-col justify-center px-7">
   <img src="/icons/icon.svg" alt="" class="h-20 w-20 rounded-[24px]" />
   <h1 class="font-display mt-6 text-[34px] leading-none font-bold tracking-[-0.04em]">Te han invitado a Hanyo</h1>
   <p class="mt-2 text-[15px] text-muted">Tu propia biblioteca de manhwa, manga y manhua: elige tu usuario y contraseña.</p>

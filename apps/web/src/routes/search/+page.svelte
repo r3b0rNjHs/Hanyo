@@ -108,6 +108,9 @@
   }
 </script>
 
+<!-- Lists read best in a column on wide screens. -->
+<div class="lg:mx-auto lg:max-w-3xl">
+
 <div class="pt-safe sticky top-0 z-20 bg-base/90 px-5 pt-4 pb-3 backdrop-blur-xl">
   <div class="flex items-center justify-between">
     <h1 class="font-display text-[30px] leading-tight font-bold tracking-[-0.03em]">Buscar</h1>
@@ -189,3 +192,4 @@
     {/each}
   </div>
 {/if}
+</div>

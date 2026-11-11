@@ -126,6 +126,9 @@
   onMount(load);
 </script>
 
+<!-- Lists read best in a column on wide screens. -->
+<div class="lg:mx-auto lg:max-w-3xl">
+
 <PageHeader title="Novedades">
   {#snippet actions()}
     {#if view === "new"}
@@ -278,3 +281,4 @@
   {/each}
 {/if}
 {/if}
+</div>

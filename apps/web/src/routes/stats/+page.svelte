@@ -54,6 +54,9 @@
   const pickedWeek = $derived(weekly.find((w) => w.start === picked) ?? null);
 </script>
 
+<!-- Lists read best in a column on wide screens. -->
+<div class="lg:mx-auto lg:max-w-3xl">
+
 <header class="pt-safe sticky top-0 z-20 bg-base/90 backdrop-blur-xl">
   <div class="flex items-center gap-2 px-3 pt-3 pb-2">
     <a href="/updates?view=history" class="flex h-11 w-11 items-center justify-center rounded-full" aria-label="Volver"><Icon name="back" size={22} stroke={2.2} /></a>
@@ -186,3 +189,4 @@
     </p>
   </div>
 {/if}
+</div>

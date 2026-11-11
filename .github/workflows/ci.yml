@@ -1,13 +1,22 @@
 name: CI
 
+# Kept cheap: one job, no browser download (the runner's Google Chrome runs the E2E tests),
+# docs-only changes skipped, and a newer push to the same branch cancels the older run.
 on:
   pull_request:
+    paths-ignore: ["**.md", "docs/**"]
   push:
     branches: [main]
+    paths-ignore: ["**.md", "docs/**"]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -18,19 +27,6 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-
-  e2e:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      # apt mirrors on the runner fail now and then; the runner image already has most of
-      # Chromium's libraries, so fall back to installing only the browser.
-      - run: npx playwright install --with-deps chromium || npx playwright install chromium
-        working-directory: apps/web
       - run: npm run e2e --workspace=apps/web
+        env:
+          PW_CHANNEL: chrome
