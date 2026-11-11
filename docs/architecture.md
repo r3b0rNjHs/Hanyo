@@ -8,12 +8,16 @@ iPhone (PWA, Safari standalone)
  └─ HTTPS ─► hanyo.yoqze.com (Caddy, yoqze VPS)
               ├─ /          static PWA from /var/www/hanyo
               └─ /api/*  ─► hanyo-api :3101 (PM2)
-                              ├─ SQLite: series, series_sources, chapters, read_marks, resume_points, push_subscriptions
-                              ├─ disk image cache (pages + covers, LRU, size-capped)
+                              ├─ SQLite: series (shelf, lang, notify, auto_download), series_sources,
+                              │          chapters, read_marks, resume_points, page_sizes,
+                              │          source_health, push_subscriptions
+                              ├─ disk image cache (pages + covers, LRU, size-capped, WebP/mozjpeg)
                               ├─ MangaDex provider ──► api.mangadex.org / MangaDex@Home
+                              ├─ AniList ───────────► names, trends, recommendations (optional)
                               └─ Suwayomi provider ──► 127.0.0.1:4567 (Docker)
                                                          ├─ Mihon extensions (Keiyoushi store)
-                                                         └─ FlareSolverr (Cloudflare challenges)
+                                                         ├─ FlareSolverr (Cloudflare challenges)
+                                                         └─ Cloudflare WARP egress (opt-in, ADR-010)
 ```
 
 ## Key flows
