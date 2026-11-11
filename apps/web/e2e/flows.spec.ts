@@ -313,6 +313,32 @@ test("invite someone: they get their own empty library, and the admin can remove
   await guest.waitForURL(/\/login/);
 });
 
+test("recommend a series to another account; it shows up in their Novedades", async ({ page, browser }) => {
+  await login(page);
+  // A second account, made through an invite.
+  const { token } = await (await page.request.post("/api/admin/invites")).json();
+  const guestCtx = await browser.newContext({ ...devices["iPhone 15 Pro"], baseURL: new URL(page.url()).origin });
+  const guest = await guestCtx.newPage();
+  const redeem = await guest.request.post(`/api/invites/${token}/redeem`, { data: { username: "lucia", password: "lucia-password" } });
+  expect(redeem.ok()).toBe(true);
+
+  await page.goto("/");
+  await openSeries(page, "Demo Strip");
+  await page.getByRole("button", { name: "Recomendar a otra cuenta" }).click();
+  const dialog = page.getByRole("dialog", { name: "Recomendar" });
+  await dialog.locator("label", { hasText: "lucia" }).getByRole("checkbox").check();
+  await dialog.getByPlaceholder("¿Por qué le va a gustar?").fill("Te va a encantar");
+  await dialog.getByRole("button", { name: "Recomendar" }).click();
+  await expect(page.getByText("Recomendada a lucia")).toBeVisible();
+
+  await guest.goto("/updates");
+  const card = guest.getByRole("region", { name: "Recomendado para ti" });
+  await expect(card.getByText("De admin")).toBeVisible();
+  await expect(card.getByText("“Te va a encantar”")).toBeVisible();
+  await card.getByRole("button", { name: /Descartar recomendación/ }).click();
+  await expect(guest.getByRole("region", { name: "Recomendado para ti" })).toHaveCount(0);
+});
+
 test("settings offers a one-click install when the browser allows it", async ({ page }) => {
   await login(page);
   await page.goto("/settings");

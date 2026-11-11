@@ -213,6 +213,18 @@ export interface HistoryItem {
   readAt: number;
 }
 
+/** A series another account recommended to you (Novedades → "Recomendado para ti"). */
+export interface Recommendation {
+  id: number;
+  from: string;
+  seriesId: number;
+  seriesTitle: string;
+  coverUrl: string | null;
+  note: string | null;
+  createdAt: number;
+  seen: boolean;
+}
+
 export interface ProgressUpdate {
   chapterId: number;
   page: number;

@@ -237,6 +237,39 @@
     return { done: ids.length, bytes, pending, ids };
   });
 
+  // ── Recommend to other accounts ──
+  let people = $state<{ id: number; username: string }[]>([]);
+  let recommendOpen = $state(false);
+  let picked = $state(new Set<number>());
+  let recNote = $state("");
+  let recBusy = $state(false);
+  $effect(() => {
+    api.directory().then((d) => (people = d), () => (people = []));
+  });
+  function togglePerson(id: number) {
+    const next = new Set(picked);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    picked = next;
+  }
+  async function sendRecommendation() {
+    if (!s || !picked.size) return;
+    recBusy = true;
+    try {
+      await api.recommend(s.id, [...picked], recNote.trim() || null);
+      const names = people.filter((p) => picked.has(p.id)).map((p) => p.username);
+      notifyToast = `Recomendada a ${names.join(", ")}`;
+      recommendOpen = false;
+      picked = new Set();
+      recNote = "";
+    } catch (e) {
+      notifyToast = (e as Error).message;
+    } finally {
+      recBusy = false;
+      setTimeout(() => (notifyToast = null), 2500);
+    }
+  }
+
   let notifyToast = $state<string | null>(null);
   async function toggleNotify() {
     if (!s) return;
@@ -303,6 +336,11 @@
         <Icon name="back" size={22} stroke={2.2} />
       </button>
       <div class="flex gap-2">
+        {#if people.length && !offline}
+          <button class="flex h-11 w-11 items-center justify-center rounded-full bg-base/60 text-fg backdrop-blur-md" onclick={() => (recommendOpen = true)} aria-label="Recomendar a otra cuenta">
+            <Icon name="share" size={19} stroke={2.2} />
+          </button>
+        {/if}
         {#if s.inLibrary}
           <button
             class="flex h-11 w-11 items-center justify-center rounded-full bg-base/60 backdrop-blur-md {s.notify ? 'text-fg' : 'text-muted'}"
@@ -526,6 +564,31 @@
     {/if}
     <button class="sheet-btn" onclick={() => setRead(c, true, true)}>Marcar este y anteriores como leídos</button>
     <button class="sheet-btn mt-1 text-muted" onclick={() => (menuFor = null)}>Cancelar</button>
+  </div>
+{/if}
+
+{#if recommendOpen && s}
+  <button class="fixed inset-0 z-40 bg-black/60" onclick={() => (recommendOpen = false)} aria-label="Cerrar"></button>
+  <div class="pb-safe fixed inset-x-0 bottom-0 z-50 rounded-t-[28px] bg-raised p-4" role="dialog" aria-label="Recomendar">
+    <p class="font-display px-1 text-lg font-semibold">Recomendar {s.title}</p>
+    <p class="px-1 pb-3 text-sm text-muted">Le llegará un aviso y la verá en sus Novedades. No ve tu biblioteca.</p>
+    <ul class="max-h-[40dvh] space-y-1 overflow-y-auto">
+      {#each people as p (p.id)}
+        <li>
+          <label class="flex items-center gap-3 rounded-2xl px-2 py-2 active:bg-fg/5">
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-base text-sm font-bold uppercase">{p.username.slice(0, 1)}</span>
+            <span class="flex-1 font-semibold">{p.username}</span>
+            <input type="checkbox" class="h-5 w-5 accent-[var(--color-accent)]" checked={picked.has(p.id)} onchange={() => togglePerson(p.id)} />
+          </label>
+        </li>
+      {/each}
+    </ul>
+    <label class="mt-3 block px-1 text-xs text-muted" for="rec-note">Nota (opcional)</label>
+    <input id="rec-note" bind:value={recNote} maxlength="200" placeholder="¿Por qué le va a gustar?" class="mt-1 h-11 w-full rounded-full bg-base px-4 text-[15px] outline-none focus:ring-2 focus:ring-accent/60" />
+    <button class="mt-3 h-12 w-full rounded-full bg-accent font-bold text-on-accent disabled:opacity-40" disabled={!picked.size || recBusy} onclick={sendRecommendation}>
+      {recBusy ? "Enviando…" : picked.size > 1 ? `Recomendar a ${picked.size}` : "Recomendar"}
+    </button>
+    <button class="mt-1 h-12 w-full rounded-full font-semibold text-muted" onclick={() => (recommendOpen = false)}>Cancelar</button>
   </div>
 {/if}
 

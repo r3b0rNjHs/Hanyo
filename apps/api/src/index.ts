@@ -19,6 +19,7 @@ import { PushService } from "./services/push.js";
 import { UpdateService } from "./services/updates.js";
 import { SourceHealthService } from "./services/health.js";
 import { UserService } from "./services/users.js";
+import { RecommendationService } from "./services/recommendations.js";
 
 const db = openDb(config.dataDir);
 const signer = new Signer(config.sessionSecret);
@@ -44,6 +45,7 @@ const health = new SourceHealthService(db, registry, (p) => push.notify(p, users
 
 const api = createApp({
   users,
+  recommendations: new RecommendationService(db),
   signer,
   secureCookies: config.isProd,
   registry,

@@ -20,8 +20,13 @@ export function updateBadge(items: FeedItem[]): void {
 
 export async function refreshFeedBadge(): Promise<void> {
   try {
-    const res = await fetch("/api/feed", { credentials: "same-origin" });
-    if (res.ok) updateBadge((await res.json()) as FeedItem[]);
+    const [feed, recs] = await Promise.all([
+      fetch("/api/feed", { credentials: "same-origin" }),
+      fetch("/api/recommendations", { credentials: "same-origin" }),
+    ]);
+    if (feed.ok) updateBadge((await feed.json()) as FeedItem[]);
+    // A recommendation nobody has looked at yet also lights the dot.
+    if (recs.ok && ((await recs.json()) as { seen: boolean }[]).some((r) => !r.seen)) feedBadge.unseen = true;
   } catch {
     // Offline: keep the current state.
   }

@@ -193,6 +193,21 @@ const MIGRATIONS: string[] = [
     used_at    INTEGER
   );
   `,
+  // v12: recommend a series to another account.
+  `
+  CREATE TABLE recommendations (
+    id           INTEGER PRIMARY KEY,
+    from_user    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_user      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    series_id    INTEGER NOT NULL REFERENCES series(id) ON DELETE CASCADE,
+    note         TEXT,
+    created_at   INTEGER NOT NULL,
+    seen_at      INTEGER,
+    dismissed_at INTEGER,
+    UNIQUE (from_user, to_user, series_id)
+  );
+  CREATE INDEX idx_recommendations_to ON recommendations(to_user, dismissed_at);
+  `,
 ];
 
 export function openDb(dataDir: string): DB {
