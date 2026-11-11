@@ -20,6 +20,8 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
     trace: "off",
     ...(process.env.PW_CHROMIUM_PATH ? { launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH } } : {}),
+    // CI: use the Google Chrome already installed on the runner instead of downloading a browser.
+    ...(process.env.PW_CHANNEL ? { channel: process.env.PW_CHANNEL } : {}),
   },
   webServer: {
     command: `rm -rf .e2e-data && DATA_DIR=.e2e-data HANYO_DEMO_SOURCE=1 API_PORT=${PORT} UPDATE_INTERVAL_MIN=0 WEB_DIR=build npx tsx ../api/src/index.ts`,
