@@ -1,10 +1,10 @@
 # Status
 
-_Last updated: 2026-11-09_
+_Last updated: 2026-11-11_
 
 ## Done
 - **hanyo-api**: auth, per-source search, series open/link/merge, merged chapter list, read marks by number,
-  resume points, page proxy + disk cache, cover proxy, update checks + prefetch, web push. 7 unit tests.
+  resume points, page proxy + disk cache, cover proxy, update checks + prefetch, web push.
 - **MangaDex provider**: verified end-to-end (search, details, 103 chapters of Eleceed, pages, cache).
 - **Suwayomi provider**: written against the real v2.4.2366 GraphQL schema; store + extension listing verified
   locally. Extension install could not be exercised in the dev sandbox → first real test happens on the VPS.
