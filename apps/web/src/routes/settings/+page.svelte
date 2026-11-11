@@ -7,6 +7,7 @@
   import PageHeader from "$lib/components/PageHeader.svelte";
   import { readerSettings } from "$lib/reader/settings.svelte";
   import { formatBytes } from "$lib/format";
+  import { endSession, loadSession, session } from "$lib/session.svelte";
   import { currentTheme, setTheme, type Theme } from "$lib/theme";
   import type { ServerStats, SourceHealth } from "@hanyo/types";
   import { timeAgo } from "$lib/format";
@@ -106,14 +107,79 @@
   }
 
   async function logout() {
-    await api.logout().catch(() => null);
+    await endSession();
     await goto("/login");
+  }
+
+  // ── Account ──
+  let accountOpen = $state(false);
+  let current = $state("");
+  let newUsername = $state("");
+  let newPassword = $state("");
+  let accountMsg = $state<{ ok: boolean; text: string } | null>(null);
+  let accountBusy = $state(false);
+  $effect(() => {
+    void loadSession().then((u) => {
+      if (u && !newUsername) newUsername = u.username;
+    });
+  });
+  async function saveAccount(e: SubmitEvent) {
+    e.preventDefault();
+    accountBusy = true;
+    accountMsg = null;
+    try {
+      const r = await api.updateAccount({
+        currentPassword: current,
+        username: newUsername.trim() || undefined,
+        password: newPassword || undefined,
+      });
+      session.user = r.user;
+      current = "";
+      newPassword = "";
+      accountMsg = { ok: true, text: "Guardado. Los demás dispositivos tendrán que volver a entrar si cambiaste la contraseña." };
+    } catch (err) {
+      accountMsg = { ok: false, text: (err as Error).message };
+    } finally {
+      accountBusy = false;
+    }
   }
 </script>
 
 <PageHeader title="Ajustes" />
 
 <div class="space-y-6 px-4">
+  <section>
+    <h2 class="mb-2 px-1 text-xs font-semibold tracking-[0.08em] text-muted uppercase">Cuenta</h2>
+    <div class="rounded-[var(--radius-card)] bg-surface">
+      <div class="flex items-center justify-between gap-3 px-4 py-3">
+        <span class="flex min-w-0 items-center gap-3">
+          <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/20 font-bold text-accent-soft uppercase">{session.user?.username.slice(0, 1) ?? "·"}</span>
+          <span class="min-w-0">
+            <span class="block truncate font-semibold">{session.user?.username ?? "…"}</span>
+            <span class="block text-xs text-muted">{session.user?.isAdmin ? "Administrador" : "Usuario"}</span>
+          </span>
+        </span>
+        <button class="h-9 shrink-0 rounded-full bg-raised px-4 text-sm font-semibold" onclick={() => (accountOpen = !accountOpen)} aria-expanded={accountOpen}>
+          {accountOpen ? "Cerrar" : "Editar"}
+        </button>
+      </div>
+      {#if accountOpen}
+        <form class="space-y-2 border-t border-fg/5 px-4 py-3" onsubmit={saveAccount}>
+          <label class="block text-xs text-muted" for="acc-user">Usuario</label>
+          <input id="acc-user" bind:value={newUsername} autocomplete="username" autocapitalize="none" class="h-11 w-full rounded-full bg-raised px-4 text-[15px] outline-none focus:ring-2 focus:ring-accent/60" />
+          <label class="block text-xs text-muted" for="acc-new">Nueva contraseña (opcional, mínimo 8)</label>
+          <input id="acc-new" type="password" bind:value={newPassword} autocomplete="new-password" class="h-11 w-full rounded-full bg-raised px-4 text-[15px] outline-none focus:ring-2 focus:ring-accent/60" />
+          <label class="block text-xs text-muted" for="acc-cur">Contraseña actual</label>
+          <input id="acc-cur" type="password" bind:value={current} required autocomplete="current-password" class="h-11 w-full rounded-full bg-raised px-4 text-[15px] outline-none focus:ring-2 focus:ring-accent/60" />
+          {#if accountMsg}<p class="text-xs {accountMsg.ok ? 'text-ok' : 'text-danger'}" role="status">{accountMsg.text}</p>{/if}
+          <button class="h-11 w-full rounded-full bg-accent font-bold text-on-accent disabled:opacity-50" disabled={accountBusy || !current}>
+            {accountBusy ? "Guardando…" : "Guardar"}
+          </button>
+        </form>
+      {/if}
+    </div>
+  </section>
+
   {#if !standalone}
     <section class="rounded-[var(--radius-card)] border border-accent/40 bg-accent/10 p-4 text-sm">
       <p class="font-semibold text-accent-soft">Instala Hanyo en tu iPhone</p>

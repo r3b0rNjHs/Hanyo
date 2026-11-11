@@ -62,9 +62,12 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 const post = <T>(path: string, body: unknown) => request<T>(path, { method: "POST", body: JSON.stringify(body) });
 
 export const api = {
-  login: (password: string) => post<{ ok: true }>("/auth/login", { password }),
+  login: (username: string, password: string) =>
+    post<{ ok: true; user: { id: number; username: string; isAdmin: boolean } }>("/auth/login", { username, password }),
   logout: () => post<{ ok: true }>("/auth/logout", {}),
-  me: () => request<{ ok: true }>("/auth/me"),
+  me: () => request<{ ok: true; user: { id: number; username: string; isAdmin: boolean } }>("/auth/me"),
+  updateAccount: (body: { currentPassword: string; username?: string; password?: string }) =>
+    post<{ ok: true; user: { id: number; username: string; isAdmin: boolean } }>("/auth/account", body),
 
   sources: () => request<SourceInfo[]>("/sources"),
   search: (source: string, q: string, signal?: AbortSignal) =>
