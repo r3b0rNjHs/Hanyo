@@ -217,3 +217,31 @@ test("settings can check that the sources work", async ({ page }) => {
   await page.getByRole("button", { name: "Comprobar" }).click();
   await expect(page.getByText("Todas funcionan (1)")).toBeVisible({ timeout: 20_000 });
 });
+
+test("the next chapter is prefetched and opens with no connection", async ({ page, context }) => {
+  await login(page);
+  await page.goto("/search?q=Demo%20Paged");
+  await page.getByRole("button", { name: /Demo Paged/ }).first().click();
+  await page.waitForURL(/\/series\/\d+/);
+  await page.reload();
+  await page.waitForFunction(() => navigator.serviceWorker?.controller != null, null, { timeout: 20_000 });
+  await page.locator('section[aria-label="Todos los capítulos"] li', { hasText: "Capítulo 1" }).getByRole("link").click();
+  await page.waitForURL(/\/read\/\d+/);
+  const { width, height } = page.viewportSize()!;
+  // Turn pages until the end card says the next chapter is ready (either reading direction).
+  const ready = page.getByText("Listo para leer");
+  for (let i = 0; i < 12 && !(await ready.isVisible()); i++) {
+    await page.mouse.click(i < 6 ? width - 20 : 20, height / 2);
+    await page.waitForTimeout(300);
+  }
+  await expect(ready).toBeVisible({ timeout: 20_000 });
+
+  await context.setOffline(true);
+  await page.getByRole("button", { name: /Seguir leyendo/ }).click();
+  await expect(page.getByText(/Cap\. 2/)).toBeVisible();
+  const loaded = await page
+    .locator('img[alt="Página 1"]')
+    .evaluate((img: HTMLImageElement) => new Promise((r) => (img.complete ? r(img.naturalWidth > 0) : (img.onload = () => r(true)))));
+  expect(loaded).toBe(true);
+  await context.setOffline(false);
+});
