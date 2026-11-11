@@ -48,7 +48,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   } catch {
     throw new ApiError(0, "Sin conexión");
   }
-  if (res.status === 401 && !path.startsWith("/auth/")) {
+  if (res.status === 401 && !path.startsWith("/auth/") && !path.startsWith("/invites/")) {
     await goto("/login");
     throw new ApiError(401, "Inicia sesión");
   }
@@ -66,6 +66,20 @@ export const api = {
     post<{ ok: true; user: { id: number; username: string; isAdmin: boolean } }>("/auth/login", { username, password }),
   logout: () => post<{ ok: true }>("/auth/logout", {}),
   me: () => request<{ ok: true; user: { id: number; username: string; isAdmin: boolean } }>("/auth/me"),
+  inviteValid: (token: string) => request<{ valid: boolean }>(`/invites/${encodeURIComponent(token)}`),
+  redeemInvite: (token: string, username: string, password: string) =>
+    post<{ ok: true; user: { id: number; username: string; isAdmin: boolean } }>(`/invites/${encodeURIComponent(token)}/redeem`, {
+      username,
+      password,
+    }),
+  adminUsers: () =>
+    request<{ id: number; username: string; isAdmin: boolean; createdAt: number; librarySize: number; lastReadAt: number | null }[]>(
+      "/admin/users",
+    ),
+  deleteUser: (id: number) => request<{ ok: true }>(`/admin/users/${id}`, { method: "DELETE" }),
+  invites: () => request<{ token: string; createdAt: number; expiresAt: number }[]>("/admin/invites"),
+  createInvite: () => post<{ token: string; expiresAt: number }>("/admin/invites", {}),
+  revokeInvite: (token: string) => request<{ ok: true }>(`/admin/invites/${encodeURIComponent(token)}`, { method: "DELETE" }),
   updateAccount: (body: { currentPassword: string; username?: string; password?: string }) =>
     post<{ ok: true; user: { id: number; username: string; isAdmin: boolean } }>("/auth/account", body),
 

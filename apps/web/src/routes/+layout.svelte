@@ -21,7 +21,9 @@
     { href: "/downloads", label: "Descargas", icon: "download" },
   ] as const;
 
-  const hideTabs = $derived(page.url.pathname.startsWith("/read/") || page.url.pathname === "/login");
+  const hideTabs = $derived(
+    page.url.pathname.startsWith("/read/") || page.url.pathname === "/login" || page.url.pathname.startsWith("/invite/"),
+  );
 
   function isActive(href: string): boolean {
     const p = page.url.pathname;
@@ -53,12 +55,12 @@
     if (navigator.onLine) void flushProgressQueue();
     // Automatic downloads on open and when the app returns to the foreground (throttled).
     const auto = () => {
-      if (document.visibilityState !== "visible" || page.url.pathname.startsWith("/login")) return;
+      if (document.visibilityState !== "visible" || /^\/(login|invite)/.test(page.url.pathname)) return;
       void runAutoDownloads();
       void refreshFeedBadge();
     };
     setTimeout(auto, 3000);
-    if (!page.url.pathname.startsWith("/login")) void refreshFeedBadge();
+    if (!/^\/(login|invite)/.test(page.url.pathname)) void refreshFeedBadge();
     document.addEventListener("visibilitychange", auto);
     return () => {
       document.removeEventListener("visibilitychange", auto);

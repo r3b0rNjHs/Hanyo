@@ -84,6 +84,25 @@ export function createApp(d: AppDeps) {
     return c.json({ ok: true });
   });
 
+  // ── Invites (public: the person isn't logged in yet) ─────────────────
+  app.get("/invites/:token", (c) => c.json({ valid: d.users.inviteValid(c.req.param("token")) }));
+  app.post("/invites/:token/redeem", async (c) => {
+    const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
+    const f = failures.get(ip);
+    if (f && f.until > Date.now()) return c.json<ApiError>({ error: "Demasiados intentos, espera un minuto" }, 429);
+    const body = z.object({ username: z.string().max(64), password: z.string().max(200) }).parse(await c.req.json());
+    try {
+      const user = d.users.redeemInvite(c.req.param("token"), body.username, body.password);
+      sessionCookie(c, user);
+      return c.json(me(user));
+    } catch (e) {
+      if (!(e instanceof UserError)) throw e;
+      const n = (f?.n ?? 0) + 1;
+      failures.set(ip, { n, until: n >= 10 ? Date.now() + 60_000 : 0 });
+      return c.json<ApiError>({ error: e.message }, 400);
+    }
+  });
+
   app.use("*", async (c, next) => {
     const token = getCookie(c, SESSION_COOKIE);
     const session = token ? d.signer.verify<{ v: number; uid?: number; sv?: number }>(token) : null;
@@ -97,6 +116,30 @@ export function createApp(d: AppDeps) {
   });
 
   app.get("/auth/me", (c) => c.json(me(c.get("user"))));
+
+  // ── Account management (admins) ─────────────────────────────────────
+  app.use("/admin/*", async (c, next) => {
+    if (!(c.get("user") as User).isAdmin) return c.json<ApiError>({ error: "Solo para administradores" }, 403);
+    await next();
+  });
+  app.get("/admin/users", (c) => c.json(d.users.list().map((u) => ({ ...u, ...d.library.userActivity(u.id) }))));
+  app.delete("/admin/users/:id", (c) => {
+    const id = intParam(c, "id");
+    if (id === uid(c)) return c.json<ApiError>({ error: "No puedes borrar tu propia cuenta" }, 400);
+    try {
+      d.users.remove(id);
+      return c.json({ ok: true });
+    } catch (e) {
+      if (e instanceof UserError) return c.json<ApiError>({ error: e.message }, 400);
+      throw e;
+    }
+  });
+  app.get("/admin/invites", (c) => c.json(d.users.listInvites()));
+  app.post("/admin/invites", (c) => c.json(d.users.createInvite(uid(c))));
+  app.delete("/admin/invites/:token", (c) => {
+    d.users.revokeInvite(c.req.param("token"));
+    return c.json({ ok: true });
+  });
 
   // Change your own username and/or password (current password required). Other devices with
   // the old password are logged out; this one gets a fresh cookie.
