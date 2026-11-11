@@ -30,6 +30,7 @@ interface SeriesRow {
   shelf: Shelf;
   auto_download: number;
   notify: number;
+  preferred_scanlator: string | null;
 }
 
 /** "es-419" → "es"; multi-language ("all") sources are read as English. */
@@ -239,6 +240,10 @@ export class LibraryService {
     };
   }
 
+  setPreferredScanlator(seriesId: number, name: string | null): void {
+    this.db.prepare("UPDATE series SET preferred_scanlator = ? WHERE id = ?").run(name?.trim() || null, seriesId);
+  }
+
   setNotify(seriesId: number, enabled: boolean): void {
     this.db.prepare("UPDATE series SET notify = ? WHERE id = ?").run(enabled ? 1 : 0, seriesId);
   }
@@ -359,14 +364,25 @@ export class LibraryService {
       authors: JSON.parse(row.authors) as string[],
       genres: JSON.parse(row.genres) as string[],
       sources,
+      preferredScanlator: row.preferred_scanlator,
+      scanlators: this.db
+        .prepare<[number], { name: string; n: number }>(
+          `SELECT c.scanlator AS name, COUNT(DISTINCT c.number) AS n FROM chapters c
+           JOIN series_sources s ON s.id = c.series_source_id JOIN series se ON se.id = s.series_id
+           WHERE s.series_id = ? AND s.lang = se.lang AND c.scanlator IS NOT NULL AND trim(c.scanlator) != ''
+           GROUP BY lower(c.scanlator) ORDER BY n DESC LIMIT 12`,
+        )
+        .all(seriesId)
+        .map((r) => ({ name: r.name, chapters: r.n })),
       chapters,
       resume: this.resume(seriesId),
     };
   }
 
   /**
-   * One entry per chapter number across all sources. For each number the preferred
-   * source wins (lowest priority value, then the most recently published upload).
+   * One entry per chapter number across all sources. For each number the preferred scanlation
+   * group wins if it has that chapter, then the preferred source (lowest priority value), then
+   * the most recently published upload.
    * Chapters without a number are kept per source, ordered by source order.
    */
   mergedChapters(seriesId: number): ChapterSummary[] {
@@ -377,6 +393,8 @@ export class LibraryService {
          WHERE s.series_id = ? AND s.lang = (SELECT lang FROM series WHERE id = s.series_id)`,
       )
       .all(seriesId);
+    const pref = this.row(seriesId)?.preferred_scanlator?.toLowerCase() ?? null;
+    const prefRank = (s: string | null) => (pref && s?.toLowerCase() === pref ? 0 : 1);
     const read = new Set(
       this.db
         .prepare<[number], { number: number }>("SELECT number FROM read_marks WHERE series_id = ?")
@@ -397,7 +415,12 @@ export class LibraryService {
 
     const out: ChapterSummary[] = [];
     for (const [number, list] of byNumber) {
-      list.sort((a, b) => a.priority - b.priority || (b.published_at ?? 0) - (a.published_at ?? 0));
+      list.sort(
+        (a, b) =>
+          prefRank(a.scanlator) - prefRank(b.scanlator) ||
+          a.priority - b.priority ||
+          (b.published_at ?? 0) - (a.published_at ?? 0),
+      );
       const best = list[0]!;
       out.push({
         id: best.id,
@@ -467,9 +490,10 @@ export class LibraryService {
     const others = this.db
       .prepare<[number, number, number], { id: number; source_name: string }>(
         `SELECT c.id, s.source_name FROM chapters c JOIN series_sources s ON s.id = c.series_source_id
-         WHERE s.series_id = ? AND c.number = ? AND c.id != ?
-           AND s.lang = (SELECT lang FROM series WHERE id = s.series_id)
-         ORDER BY s.priority, c.published_at DESC`,
+         JOIN series se ON se.id = s.series_id
+         WHERE s.series_id = ? AND c.number = ? AND c.id != ? AND s.lang = se.lang
+         ORDER BY (se.preferred_scanlator IS NOT NULL AND lower(c.scanlator) = lower(se.preferred_scanlator)) DESC,
+                  s.priority, c.published_at DESC`,
       )
       .all(ctx.link.series_id, ctx.chapter.number, chapterId);
     return [self, ...others.map((o) => ({ id: o.id, sourceName: o.source_name }))];

@@ -135,6 +135,10 @@ export interface SeriesDetail extends SeriesSummary {
   authors: string[];
   genres: string[];
   sources: SeriesSourceLink[];
+  /** Scanlation group to prefer when a chapter exists in several (null = automatic). */
+  preferredScanlator: string | null;
+  /** Groups that translated this series (in its language), most chapters first. */
+  scanlators: { name: string; chapters: number }[];
   /** Merged, de-duplicated chapter list (one entry per chapter number), ascending. */
   chapters: ChapterSummary[];
   resume: ResumePoint | null;

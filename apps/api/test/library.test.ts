@@ -109,6 +109,24 @@ describe("LibraryService", () => {
     expect(merged[3]!.sourceKey).toBe("suwayomi:42");
   });
 
+  it("prefers a scanlation group over source priority when it has the chapter", async () => {
+    const { library } = setup();
+    const id = await library.open("mangadex", "md-1");
+    await library.linkSource(id, "suwayomi:42", "7");
+    // MangaDex (md) wins by priority; Weeb Central chapters are by "wc".
+    expect(library.mergedChapters(id)[0]!.scanlator).toBe("md");
+    expect(library.detailFromDb(id)!.scanlators.map((s) => s.name)).toEqual(["wc", "md"]);
+
+    library.setPreferredScanlator(id, "WC");
+    const merged = library.mergedChapters(id);
+    expect(merged[0]!.scanlator).toBe("wc");
+    expect(library.chapterCandidates(merged[0]!.alternatives[0]!).map((c) => c.sourceName)).toEqual(["MangaDex", "Weeb Central"]);
+    expect(library.detailFromDb(id)!.preferredScanlator).toBe("WC");
+
+    library.setPreferredScanlator(id, null);
+    expect(library.mergedChapters(id)[0]!.scanlator).toBe("md");
+  });
+
   it("tracks read state by chapter number so it survives source changes", async () => {
     const { library } = setup();
     const id = await library.open("mangadex", "md-1");
