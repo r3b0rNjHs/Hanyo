@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 async function login(page: Page) {
   await page.goto("/login");
+  await page.fill("#username", "admin");
   await page.fill("input[type=password]", "hanyo");
   await page.click('button:has-text("Entrar")');
   await page.waitForURL("/");
@@ -268,4 +269,17 @@ test("delete every download at once, after confirming", async ({ page }) => {
   await page.getByRole("button", { name: "Eliminar todas las descargas" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Eliminar todo" }).click();
   await expect(page.getByText("Nada descargado todavía")).toBeVisible();
+});
+
+test("settings shows who is logged in, and logging out asks for an account", async ({ page }) => {
+  await login(page);
+  await page.goto("/settings");
+  await expect(page.getByText("Administrador")).toBeVisible();
+  await expect(page.locator("section", { hasText: "Cuenta" }).getByText("admin", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Cerrar sesión" }).click();
+  await page.waitForURL(/\/login/);
+  await page.fill("#username", "admin");
+  await page.fill("input[type=password]", "wrong-password");
+  await page.click('button:has-text("Entrar")');
+  await expect(page.getByText("Usuario o contraseña incorrectos")).toBeVisible();
 });

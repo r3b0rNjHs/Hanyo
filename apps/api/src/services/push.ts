@@ -27,22 +27,25 @@ export class PushService {
     if (this.enabled) webpush.setVapidDetails(subject, publicKey, privateKey);
   }
 
-  subscribe(sub: { endpoint: string; keys: { p256dh: string; auth: string } }): void {
+  /** A device subscribes for the user logged in on it (the same phone can switch accounts). */
+  subscribe(uid: number, sub: { endpoint: string; keys: { p256dh: string; auth: string } }): void {
     this.db
       .prepare(
-        `INSERT INTO push_subscriptions (endpoint, p256dh, auth, created_at) VALUES (?, ?, ?, ?)
-         ON CONFLICT(endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth`,
+        `INSERT INTO push_subscriptions (endpoint, p256dh, auth, created_at, user_id) VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth, user_id = excluded.user_id`,
       )
-      .run(sub.endpoint, sub.keys.p256dh, sub.keys.auth, Date.now());
+      .run(sub.endpoint, sub.keys.p256dh, sub.keys.auth, Date.now(), uid);
   }
 
   unsubscribe(endpoint: string): void {
     this.db.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?").run(endpoint);
   }
 
-  async notify(payload: PushPayload): Promise<void> {
+  /** Send to these users' devices (all devices when no users are given). */
+  async notify(payload: PushPayload, userIds?: number[]): Promise<void> {
     if (!this.enabled) return;
-    const subs = this.db.prepare<[], SubRow>("SELECT endpoint, p256dh, auth FROM push_subscriptions").all();
+    const all = this.db.prepare<[], SubRow & { user_id: number }>("SELECT endpoint, p256dh, auth, user_id FROM push_subscriptions").all();
+    const subs = userIds ? all.filter((s) => userIds.includes(s.user_id)) : all;
     await Promise.allSettled(
       subs.map(async (s) => {
         try {

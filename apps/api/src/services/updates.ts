@@ -53,9 +53,10 @@ export class UpdateService {
       const title = this.library.title(id) ?? "Serie";
       const sorted = newNumbers.sort((a, b) => a - b);
       const label = sorted.length === 1 ? `Capítulo ${sorted[0]}` : `${sorted.length} capítulos nuevos (hasta el ${sorted.at(-1)})`;
-      if (this.library.notifyEnabled(id)) await this.push.notify({ title, body: label, url: `/series/${id}` });
+      const users = this.library.usersToNotify(id);
+      if (users.length) await this.push.notify({ title, body: label, url: `/series/${id}` }, users);
       // Warm the server cache so the phone downloads fast and the chapter survives source outages.
-      const merged = this.library.mergedChapters(id).filter((c) => c.number !== null && sorted.includes(c.number));
+      const merged = this.library.mergedChapters(id, 0).filter((c) => c.number !== null && sorted.includes(c.number));
       for (const c of merged) {
         await this.pages.prefetch(c.id).catch((e) => result.errors.push(`prefetch ${c.id}: ${(e as Error).message}`));
       }
@@ -110,7 +111,7 @@ export class UpdateService {
   }
 
   async autoLink(seriesId: number): Promise<string[]> {
-    const detail = this.library.detailFromDb(seriesId);
+    const detail = this.library.detailFromDb(seriesId, 0);
     if (!detail) return [];
     const linked = new Set(detail.sources.map((s) => s.sourceKey));
     const { names, titles } = await this.knownNames(detail.title);

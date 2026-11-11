@@ -10,6 +10,9 @@ import { ImageCache } from "../src/services/image-cache.js";
 import { LibraryService } from "../src/services/library.js";
 import { PageService, SourceUnavailableError } from "../src/services/pages.js";
 
+/** The admin created by the multi-user migration owns the data in these tests. */
+const U = 1;
+
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
 
 /** A source whose chapter list works; its images either load or are blocked like a Cloudflare ban. */
@@ -91,8 +94,8 @@ describe("PageService source fallback", () => {
     const id = await library.open("suwayomi:1", "wc");
     await library.linkSource(id, "mangadex", "md");
     // Make the blocked source the preferred one, like a series opened from Weeb Central.
-    library.setPriority(id, library.detailFromDb(id)!.sources.find((s) => s.sourceKey === "suwayomi:1")!.id, 10);
-    const ch32 = library.mergedChapters(id).find((c) => c.number === 32)!;
+    library.setPriority(id, library.detailFromDb(id, U)!.sources.find((s) => s.sourceKey === "suwayomi:1")!.id, 10);
+    const ch32 = library.mergedChapters(id, U).find((c) => c.number === 32)!;
     expect(ch32.sourceName).toBe("Weeb Central");
 
     const res = (await pages.chapterPages(ch32.id))!;
@@ -108,7 +111,7 @@ describe("PageService source fallback", () => {
     const { library, pages } = setup({ blockedHasEverything: true, otherSourceHas: [115] });
     const id = await library.open("suwayomi:1", "wc");
     await library.linkSource(id, "mangadex", "md");
-    const ch32 = library.mergedChapters(id).find((c) => c.number === 32)!;
+    const ch32 = library.mergedChapters(id, U).find((c) => c.number === 32)!;
 
     const err = await pages.chapterPages(ch32.id).catch((e) => e);
     expect(err).toBeInstanceOf(SourceUnavailableError);
@@ -119,7 +122,7 @@ describe("PageService source fallback", () => {
   it("uses the chapter's own source when it works", async () => {
     const { library, pages, blocked } = setup({ blockedHasEverything: false, otherSourceHas: [31, 32] });
     const id = await library.open("mangadex", "md");
-    const ch = library.mergedChapters(id).find((c) => c.number === 31)!;
+    const ch = library.mergedChapters(id, U).find((c) => c.number === 31)!;
     const res = (await pages.chapterPages(ch.id))!;
     expect(res.chapterId).toBe(ch.id);
     expect(res.sourceName).toBe("MangaDex");
@@ -129,7 +132,7 @@ describe("PageService source fallback", () => {
   it("returns the page shapes it has learned", async () => {
     const { library, pages } = setup({ blockedHasEverything: false, otherSourceHas: [31] });
     const id = await library.open("mangadex", "md");
-    const ch = library.mergedChapters(id).find((c) => c.number === 31)!;
+    const ch = library.mergedChapters(id, U).find((c) => c.number === 31)!;
     library.setPageRatio(ch.id, 1, 12.5);
     const res = (await pages.chapterPages(ch.id))!;
     expect(res.ratios).toEqual([null, 12.5]);
@@ -141,7 +144,7 @@ describe("PageService direct mode", () => {
     const { library, pages, blocked } = setup({ blockedHasEverything: true, otherSourceHas: [115] });
     blocked.direct = ["https://official.lowee.us/manga/QUESTISM/0032-001.png", "https://official.lowee.us/manga/QUESTISM/0032-002.png"];
     const id = await library.open("suwayomi:1", "wc");
-    const ch32 = library.mergedChapters(id).find((c) => c.number === 32)!;
+    const ch32 = library.mergedChapters(id, U).find((c) => c.number === 32)!;
 
     const res = (await pages.chapterPages(ch32.id))!;
     expect(res.direct).toBe(true);
@@ -154,7 +157,7 @@ describe("PageService direct mode", () => {
     blocked.direct = ["https://cdn.example/1.png"];
     const id = await library.open("suwayomi:1", "wc");
     await library.linkSource(id, "mangadex", "md");
-    const ch32 = library.chapterCandidates(library.mergedChapters(id).find((c) => c.number === 32)!.id);
+    const ch32 = library.chapterCandidates(library.mergedChapters(id, U).find((c) => c.number === 32)!.id, U);
     const wcChapter = ch32.find((c) => c.sourceName === "Weeb Central")!;
     const res = (await pages.chapterPages(wcChapter.id))!;
     expect(res.direct).toBe(false);
@@ -165,7 +168,7 @@ describe("PageService direct mode", () => {
     const { library, pages, blocked } = setup({ blockedHasEverything: true, otherSourceHas: [115] });
     blocked.direct = ["https://cdn.example/1.png"];
     const id = await library.open("suwayomi:1", "wc");
-    const [c31, c32] = library.mergedChapters(id).filter((c) => c.number === 31 || c.number === 32);
+    const [c31, c32] = library.mergedChapters(id, U).filter((c) => c.number === 31 || c.number === 32);
     await pages.chapterPages(c31!.id);
     const callsAfterFirst = blocked.imageCalls;
     expect(callsAfterFirst).toBeGreaterThan(0);

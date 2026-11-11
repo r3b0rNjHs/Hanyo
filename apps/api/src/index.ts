@@ -18,6 +18,7 @@ import { PageService } from "./services/pages.js";
 import { PushService } from "./services/push.js";
 import { UpdateService } from "./services/updates.js";
 import { SourceHealthService } from "./services/health.js";
+import { UserService } from "./services/users.js";
 
 const db = openDb(config.dataDir);
 const signer = new Signer(config.sessionSecret);
@@ -36,10 +37,13 @@ const pages = new PageService(library, registry, cache, config.imageQuality);
 const push = new PushService(db, config.vapid.publicKey, config.vapid.privateKey, config.vapid.subject);
 const titles = new AniListTitles();
 const updates = new UpdateService(library, registry, pages, push, console.log, titles);
-const health = new SourceHealthService(db, registry, (p) => push.notify(p));
+const users = new UserService(db);
+users.bootstrap(config.password, process.env.HANYO_ADMIN_USER);
+// Source problems are the admins' business.
+const health = new SourceHealthService(db, registry, (p) => push.notify(p, users.admins()));
 
 const api = createApp({
-  password: config.password,
+  users,
   signer,
   secureCookies: config.isProd,
   registry,

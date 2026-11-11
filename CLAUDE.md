@@ -36,6 +36,8 @@ deploy/        setup.sh (one-shot VPS), deploy.sh (CI), docker-compose.yml, hany
 4. **iOS memory**: the strip reader mounts only a window of `<img>`s; never render a whole chapter at once.
 5. **Be a good citizen**: MangaDex rate limits + MangaDex@Home reports; Suwayomi only on localhost.
 6. UI copy in Spanish; code, comments and commits in English.
+7. **Accounts share the catalogue**: series/sources/chapters/caches are global; anything personal
+   (library, lists, language, group, notifications, read marks, resume points) is per user (ADR-013).
 
 ## Commands
 

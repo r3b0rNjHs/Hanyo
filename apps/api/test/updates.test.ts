@@ -9,6 +9,9 @@ import type { PageService } from "../src/services/pages.js";
 import type { PushService } from "../src/services/push.js";
 import { UpdateService } from "../src/services/updates.js";
 
+/** The admin created by the multi-user migration owns the data in these tests. */
+const U = 1;
+
 class Fake implements Provider {
   searches = 0;
   constructor(
@@ -85,17 +88,17 @@ describe("UpdateService.relinkLibrary", () => {
   it("links library series to sources that know them under another name", async () => {
     const { library, updates } = setup();
     const id = await library.open("mangadex", "a");
-    library.setInLibrary(id, true);
+    library.setInLibrary(U, id, true);
 
     expect(await updates.relinkLibrary()).toEqual({ checked: 1, linked: 1 });
-    const linked = library.detailFromDb(id)!.sources.map((s) => s.externalId);
+    const linked = library.detailFromDb(id, U)!.sources.map((s) => s.externalId);
     expect(linked).toEqual(["a", "x"]);
   });
 
   it("skips series already matched against the same sources until they change", async () => {
     const { library, updates, suwa } = setup();
     const id = await library.open("mangadex", "a");
-    library.setInLibrary(id, true);
+    library.setInLibrary(U, id, true);
     await updates.relinkLibrary();
     const before = suwa.searches;
 
@@ -113,7 +116,7 @@ describe("UpdateService.openByNames", () => {
     const id = await updates.openByNames("Return of the Blossoming Blade", ["Return of the Mount Hua Sect"]);
     expect(id).not.toBeNull();
     await new Promise((r) => setTimeout(r, 20));
-    const detail = library.detailFromDb(id!)!;
+    const detail = library.detailFromDb(id!, U)!;
     expect(detail.sources.map((s) => s.sourceKey)).toEqual(["mangadex", "suwayomi:1"]);
   });
 
@@ -149,7 +152,7 @@ describe("searching sources by other names", () => {
     const updates = new UpdateService(library, registry, {} as PageService, {} as PushService, () => {});
     const id = await updates.openByNames("Return of the Blossoming Blade", ["Hwasan Gwihwan"]);
     expect(id).not.toBeNull();
-    expect(library.detailFromDb(id!)!.sources[0]!.externalId).toBe("r");
+    expect(library.detailFromDb(id!, U)!.sources[0]!.externalId).toBe("r");
     expect(strict.searches).toBe(2);
   });
 });

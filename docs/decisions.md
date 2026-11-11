@@ -73,3 +73,14 @@ for unseen ones; search opens from Explore's search bar (Explore stays highlight
 to the library header. The series page puts one full-width primary action first, three equal
 secondary actions (list, download, sources), the language as a compact EN/ES switch, and filters
 plus stepwise rendering for long chapter lists.
+
+## ADR-013: Accounts with a shared catalogue
+To show Hanyo to others (yoqze colleagues) without exposing the owner's profile, there are real
+accounts. What is personal lives per user — `user_series` (in library, list, language, preferred
+group, notifications, auto-download), `read_marks`, `resume_points`, push subscriptions — while
+series, sources, chapters, page shapes and the image cache stay shared: a series read by one user
+is already linked and cached for the next, and sources are not asked twice. Migration v11 moves
+existing data to user 1 (admin), whose password comes from `HANYO_PASSWORD` once. Passwords are
+scrypt hashes; session cookies carry the user and a session version, so a password change logs out
+other devices; v1 cookies from before accounts map to the admin. Accounts are created through
+single-use invite links (7 days). Logging out clears cached API answers on the device.
