@@ -61,6 +61,9 @@
   });
 </script>
 
+<!-- Lists read best in a column on wide screens. -->
+<div class="lg:mx-auto lg:max-w-3xl">
+
 <PageHeader title="Descargas" subtitle="{formatBytes(downloads.totalBytes)} en este dispositivo">
   {#snippet actions()}
     {#if downloads.records.size > 0}
@@ -165,3 +168,4 @@
     {/each}
   </ul>
 {/if}
+</div>

@@ -127,6 +127,26 @@ textarea {
   padding-bottom: calc(var(--tabbar-h) + var(--tabbar-gap) + var(--safe-bottom) + 24px);
 }
 
+/* Wide screens: no floating tab bar (a sidebar instead), and bottom sheets become centred dialogs. */
+@media (min-width: 1024px) {
+  .pb-tabbar {
+    padding-bottom: 48px;
+  }
+  :is([role="dialog"], [role="alertdialog"]).fixed.bottom-0.inset-x-0 {
+    left: 50%;
+    right: auto;
+    top: 50%;
+    bottom: auto;
+    width: min(520px, calc(100vw - 48px));
+    max-height: 85vh;
+    overflow-y: auto;
+    translate: -50% -50%;
+    border-radius: 28px;
+    padding-bottom: 1.25rem;
+    box-shadow: 0 24px 60px rgb(0 0 0 / 0.45);
+  }
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }

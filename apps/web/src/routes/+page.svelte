@@ -99,7 +99,7 @@
     >
       {#if checking}<Spinner size={18} />{:else}<Icon name="refresh" size={20} stroke={2} />{/if}
     </button>
-    <a href="/settings" class="flex h-11 w-11 items-center justify-center rounded-full bg-raised text-fg active:bg-line" aria-label="Ajustes">
+    <a href="/settings" class="flex h-11 w-11 items-center justify-center rounded-full bg-raised text-fg active:bg-line lg:hidden" aria-label="Ajustes">
       <Icon name="settings" size={20} stroke={2} />
     </a>
   {/snippet}
@@ -132,7 +132,7 @@
       {#each reading as s (s.id)}
         <a
           href="/series/{s.id}?resume=1"
-          class="flex h-[188px] {reading.length === 1 ? 'w-full' : 'w-[78%] max-w-[300px]'} shrink-0 snap-start overflow-hidden rounded-[var(--radius-panel)] border border-line/70 bg-surface"
+          class="flex h-[188px] {reading.length === 1 ? 'w-full sm:max-w-[420px]' : 'w-[78%] max-w-[300px] sm:w-[300px]'} shrink-0 snap-start overflow-hidden rounded-[var(--radius-panel)] border border-line/70 bg-surface"
         >
           <Cover src={s.coverUrl} alt={s.title} rounded="rounded-none" class="h-full w-[118px] shrink-0 !aspect-auto" />
           <div class="flex min-w-0 flex-1 flex-col gap-1.5 p-4">
@@ -192,9 +192,9 @@
           : "No hay series en esta lista."}
     </p>
   {:else}
-    <div class="mt-4 grid grid-cols-2 gap-x-3.5 gap-y-5 px-5">
+    <div class="mt-4 grid grid-cols-2 gap-x-3.5 gap-y-5 px-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
       {#each visible as s (s.id)}
-        <a href="/series/{s.id}" class="min-w-0">
+        <a href="/series/{s.id}" class="min-w-0 transition-transform duration-150 [@media(hover:hover)]:hover:-translate-y-0.5">
           <div class="relative">
             <Cover src={s.coverUrl} alt={s.title} />
             {#if hasNew(s)}

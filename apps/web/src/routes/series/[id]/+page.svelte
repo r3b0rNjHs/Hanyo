@@ -289,8 +289,10 @@
     </div>
   {/if}
 
+  <!-- Phone: full-bleed cover with the sheet overlapping it. Wide screens: cover in a sticky left column. -->
+  <div class="lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start lg:gap-10 lg:pt-8">
   <!-- Hero: the cover, full bleed -->
-  <div class="relative h-[230px] overflow-hidden bg-accent">
+  <div class="relative h-[230px] overflow-hidden bg-accent lg:sticky lg:top-8 lg:aspect-[3/4] lg:h-auto lg:rounded-[24px] lg:shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
     {#if s.coverUrl}
       <img src={s.coverUrl} alt="" class="absolute inset-0 h-full w-full object-cover object-top" />
     {:else}
@@ -320,8 +322,8 @@
   </div>
 
   <!-- Sheet overlapping the cover -->
-  <div class="relative -mt-9 rounded-t-[28px] bg-base px-5 pt-5">
-    <h1 class="font-display text-[30px] leading-[1.05] font-bold tracking-[-0.03em]">{s.title}</h1>
+  <div class="relative -mt-9 rounded-t-[28px] bg-base px-5 pt-5 lg:mt-0 lg:rounded-none lg:px-0 lg:pt-0">
+    <h1 class="font-display text-[30px] leading-[1.05] font-bold tracking-[-0.03em] lg:text-[40px]">{s.title}</h1>
     <p class="mt-1.5 line-clamp-2 text-sm text-muted">
       {[...s.authors.slice(0, 2), ...s.genres.slice(0, 2)].join(" · ")}
     </p>
@@ -501,6 +503,7 @@
         <p class="py-8 text-center text-sm text-muted">{listFilter === "downloaded" ? "No hay capítulos descargados." : "Ya lo has leído todo."}</p>
       {/if}
     </section>
+  </div>
   </div>
 {/if}
 

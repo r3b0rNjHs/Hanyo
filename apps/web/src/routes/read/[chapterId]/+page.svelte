@@ -298,7 +298,7 @@
     {/if}
 
     <!-- Top pill -->
-    <div class="pt-safe fixed inset-x-4 top-0 z-20 transition-all duration-200 {uiVisible ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-4 opacity-0'}">
+    <div class="pt-safe fixed inset-x-4 top-0 z-20 mx-auto max-w-3xl transition-all duration-200 {uiVisible ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-4 opacity-0'}">
       <div class="mt-2 flex h-[52px] items-center gap-1 rounded-full border border-line bg-raised/95 px-1 shadow-[0_10px_24px_rgba(0,0,0,0.45)] backdrop-blur-xl">
         <a href="/series/{data.seriesId}" class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full" aria-label="Volver a la serie">
           <Icon name="back" size={22} stroke={2.2} />
@@ -317,7 +317,7 @@
     </div>
 
     <!-- Bottom pill -->
-    <div class="fixed inset-x-4 z-20 transition-all duration-200 {uiVisible ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-4 opacity-0'}" style="bottom: calc(var(--safe-bottom) + 12px)">
+    <div class="fixed inset-x-4 z-20 mx-auto max-w-3xl transition-all duration-200 {uiVisible ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-4 opacity-0'}" style="bottom: calc(var(--safe-bottom) + 12px)">
       <div class="flex h-14 items-center gap-1 rounded-full border border-line bg-raised/95 px-1 shadow-[0_10px_24px_rgba(0,0,0,0.45)] backdrop-blur-xl">
         <button class="flex h-11 w-11 items-center justify-center rounded-full disabled:opacity-30" disabled={!data.prevChapterId} onclick={() => goChapter(data!.prevChapterId)} aria-label="Capítulo anterior">
           <Icon name="back" size={22} stroke={2.2} />

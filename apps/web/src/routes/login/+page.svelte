@@ -23,7 +23,7 @@
   }
 </script>
 
-<div class="pt-safe flex min-h-dvh flex-col justify-center px-7">
+<div class="pt-safe mx-auto flex min-h-dvh max-w-md flex-col justify-center px-7">
   <img src="/icons/icon.svg" alt="" class="h-20 w-20 rounded-[24px]" />
   <h1 class="font-display mt-6 text-[40px] leading-none font-bold tracking-[-0.04em]">Hanyo</h1>
   <p class="mt-2 text-[15px] text-muted">Tu biblioteca de manhwa, manga y manhua.</p>

@@ -196,6 +196,9 @@
   }
 </script>
 
+<!-- Lists read best in a column on wide screens. -->
+<div class="lg:mx-auto lg:max-w-2xl">
+
 <PageHeader title="Ajustes" />
 
 <div class="space-y-6 px-4">
@@ -438,4 +441,5 @@
 
   <button class="w-full rounded-[var(--radius-card)] bg-surface py-3 text-danger" onclick={logout}>Cerrar sesión</button>
   <p class="pb-4 text-center text-xs text-faint">Hanyo 0.1</p>
+</div>
 </div>
