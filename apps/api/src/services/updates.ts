@@ -75,14 +75,7 @@ export class UpdateService {
   async openByNames(title: string, titles: string[], timeoutMs = 15_000): Promise<number | null> {
     const names = new Set([title, ...titles].map(normalizeTitle).filter(Boolean));
     const sources = await this.registry.listSources();
-    const find = async (key: string): Promise<string | null> => {
-      const { provider, sourceId } = this.registry.resolve(key);
-      const hits = await Promise.race([
-        provider.search(sourceId, title),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), timeoutMs).unref()),
-      ]);
-      return hits.find((h) => [h.title, ...(h.altTitles ?? [])].some((t) => names.has(normalizeTitle(t))))?.externalId ?? null;
-    };
+    const find = (key: string) => this.findOn(key, [title, ...titles], names, timeoutMs);
 
     // MangaDex answers fast and is the preferred source: when it has the series, open right away
     // and let auto-linking find the other sources in the background.
@@ -120,16 +113,14 @@ export class UpdateService {
     const detail = this.library.detailFromDb(seriesId);
     if (!detail) return [];
     const linked = new Set(detail.sources.map((s) => s.sourceKey));
-    const names = await this.knownNames(detail.title);
+    const { names, titles } = await this.knownNames(detail.title);
     const added: string[] = [];
     const sources = (await this.registry.listSources()).filter((s) => !linked.has(s.key));
     await Promise.allSettled(
       sources.map(async (s) => {
-        const { provider, sourceId } = this.registry.resolve(s.key);
-        const hits = await provider.search(sourceId, detail.title);
-        const match = hits.find((h) => [h.title, ...(h.altTitles ?? [])].some((t) => names.has(normalizeTitle(t))));
-        if (!match) return;
-        await this.library.linkSource(seriesId, s.key, match.externalId);
+        const externalId = await this.findOn(s.key, titles, names);
+        if (!externalId) return;
+        await this.library.linkSource(seriesId, s.key, externalId);
         added.push(s.name);
       }),
     );
@@ -142,14 +133,31 @@ export class UpdateService {
    * ("Return of the Blossoming Blade" = "Return of the Mount Hua Sect"). Only an entry that
    * contains the title itself is used, so a vague title can't pull in another series.
    */
-  private async knownNames(title: string): Promise<Set<string>> {
+  private async knownNames(title: string): Promise<{ names: Set<string>; titles: string[] }> {
     const own = normalizeTitle(title);
-    const names = new Set([own]);
     const clusters = (await this.titles?.lookup(title)) ?? [];
     const same = clusters.find((c) => c.titles.some((t) => normalizeTitle(t) === own));
-    for (const t of same?.titles ?? []) names.add(normalizeTitle(t));
+    const titles = [title, ...(same?.titles ?? [])];
+    const names = new Set(titles.map(normalizeTitle));
     names.delete("");
-    return names;
+    return { names, titles };
+  }
+
+  /**
+   * Search one source for a series known by `names`. Queries the main title first, then up to two
+   * other Latin-script names (a source may only know the romanized title, e.g. "Hwasan Gwihwan").
+   */
+  private async findOn(key: string, titles: string[], names: Set<string>, timeoutMs = 15_000): Promise<string | null> {
+    const { provider, sourceId } = this.registry.resolve(key);
+    for (const q of searchQueries(titles)) {
+      const hits = await Promise.race([
+        provider.search(sourceId, q),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), timeoutMs).unref()),
+      ]).catch(() => []);
+      const match = hits.find((h) => [h.title, ...(h.altTitles ?? [])].some((t) => names.has(normalizeTitle(t))));
+      if (match) return match.externalId;
+    }
+    return null;
   }
 
   private relinking: Promise<{ checked: number; linked: number }> | null = null;
@@ -181,4 +189,18 @@ export class UpdateService {
     });
     return this.relinking;
   }
+}
+
+/** The main title, then up to two more Latin-script names that normalize differently. */
+export function searchQueries(titles: string[], max = 3): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of titles) {
+    const n = normalizeTitle(t);
+    if (!n || seen.has(n) || !/^[\p{Script=Latin}\p{N}\p{P}\p{Zs}\p{S}]+$/u.test(t)) continue;
+    seen.add(n);
+    out.push(t);
+    if (out.length === max) break;
+  }
+  return out;
 }

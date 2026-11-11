@@ -19,7 +19,7 @@ class Fake implements Provider {
   async listSources() {
     return this.sources;
   }
-  async search() {
+  async search(_s?: string, _q?: string): Promise<{ externalId: string; title: string; coverUrl: string | null }[]> {
     this.searches++;
     return Object.values(this.series).map((s) => ({ externalId: s.externalId, title: s.title, coverUrl: null }));
   }
@@ -120,5 +120,36 @@ describe("UpdateService.openByNames", () => {
   it("returns null when no source has it", async () => {
     const { updates } = setup();
     expect(await updates.openByNames("Nothing Like This", [])).toBeNull();
+  });
+});
+
+describe("searching sources by other names", () => {
+  it("builds queries from the main title and other Latin-script names", async () => {
+    const { searchQueries } = await import("../src/services/updates.js");
+    expect(searchQueries(["Return of the Blossoming Blade", "Hwasan Gwihwan", "화산귀환", "Return of the Blossoming Blade!", "Return of the Mount Hua Sect"])).toEqual([
+      "Return of the Blossoming Blade",
+      "Hwasan Gwihwan",
+      "Return of the Mount Hua Sect",
+    ]);
+  });
+
+  it("finds a series on a source that only knows its romanized name", async () => {
+    // This source's search only matches what you type, and it only knows the Korean romanization.
+    class Strict extends Fake {
+      override async search(_s?: string, q?: string) {
+        this.searches++;
+        return q === "Hwasan Gwihwan" ? [{ externalId: "r", title: "Hwasan Gwihwan", coverUrl: null }] : [];
+      }
+    }
+    const strict = new Strict("suwayomi", [src("suwayomi:9", "Romaji Scans")], {
+      r: raw("Hwasan Gwihwan", "r"),
+    });
+    const registry = new ProviderRegistry([strict]);
+    const library = new LibraryService(openMemoryDb(), registry, (_k, u) => u);
+    const updates = new UpdateService(library, registry, {} as PageService, {} as PushService, () => {});
+    const id = await updates.openByNames("Return of the Blossoming Blade", ["Hwasan Gwihwan"]);
+    expect(id).not.toBeNull();
+    expect(library.detailFromDb(id!)!.sources[0]!.externalId).toBe("r");
+    expect(strict.searches).toBe(2);
   });
 });
