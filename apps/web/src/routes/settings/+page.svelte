@@ -162,6 +162,13 @@
         <span>Mantener pantalla encendida</span>
         <input type="checkbox" bind:checked={readerSettings.keepAwake} class="switch" />
       </label>
+      <label class="flex items-center justify-between gap-3 px-4 py-3">
+        <span>
+          <span class="block">Precargar el siguiente capítulo</span>
+          <span class="block text-xs text-muted">Se abre al instante, también si pierdes la conexión</span>
+        </span>
+        <input type="checkbox" bind:checked={readerSettings.prefetchNext} class="switch shrink-0" />
+      </label>
       <label class="flex items-center justify-between px-4 py-3">
         <span>Mostrar número de página</span>
         <input type="checkbox" bind:checked={readerSettings.showPageNumber} class="switch" />

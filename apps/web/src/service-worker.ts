@@ -3,7 +3,7 @@
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
 import { build, files, version } from "$service-worker";
-import { API_CACHE, COVERS_CACHE, PAGES_CACHE } from "$lib/offline/caches";
+import { API_CACHE, COVERS_CACHE, PAGES_CACHE, PREFETCH_CACHE } from "$lib/offline/caches";
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 const SHELL_CACHE = `hanyo-shell-${version}`;
@@ -43,9 +43,14 @@ sw.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Downloaded chapter pages: cache only if downloaded, otherwise straight to network.
+  // Chapter pages: downloaded, else prefetched (next chapter), else straight to network.
   if (PAGE_RE.test(url.pathname)) {
-    event.respondWith(caches.match(url.pathname, { cacheName: PAGES_CACHE }).then((hit) => hit ?? fetch(req)));
+    event.respondWith(
+      (async () =>
+        (await caches.match(url.pathname, { cacheName: PAGES_CACHE })) ??
+        (await caches.match(url.pathname, { cacheName: PREFETCH_CACHE })) ??
+        fetch(req))(),
+    );
     return;
   }
 

@@ -7,6 +7,7 @@
   import Icon from "$lib/components/Icon.svelte";
   import Spinner from "$lib/components/Spinner.svelte";
   import { downloads } from "$lib/offline/downloads.svelte";
+  import { isPrefetched, prefetchChapter } from "$lib/offline/prefetch";
   import PagedView from "$lib/reader/PagedView.svelte";
   import StripView from "$lib/reader/StripView.svelte";
   import {
@@ -185,6 +186,20 @@
     ["ltr", "Páginas →"],
   ];
   const nextIsDownloaded = $derived(data?.nextChapterId ? downloads.isDownloaded(data.nextChapterId) : false);
+
+  // Halfway through a chapter, fetch the next one so it opens instantly (and offline).
+  let nextReady = $state(false);
+  $effect(() => {
+    const d = data;
+    if (!d?.nextChapterId) return;
+    nextReady = nextIsDownloaded || isPrefetched(d.nextChapterId);
+    if (nextReady || !readerSettings.prefetchNext || !connection.online) return;
+    if (current < Math.floor(d.pages.length / 2)) return;
+    const id = d.nextChapterId;
+    void prefetchChapter(id).then((ok) => {
+      if (data?.nextChapterId === id) nextReady = ok;
+    });
+  });
 </script>
 
 <svelte:window onscroll={onWindowScroll} onpointerdown={requestWakeLock} />
@@ -225,14 +240,14 @@
               </span>
               <span class="flex flex-col gap-1">
                 <span class="font-display text-2xl font-bold tracking-tight">{chapterLabel(data!.nextChapterNumber)}</span>
-                <span class="text-[13px] text-muted">{nextIsDownloaded ? "Descargado · disponible sin conexión" : connection.online ? "Se cargará online" : "No descargado"}</span>
+                <span class="text-[13px] text-muted">{nextIsDownloaded ? "Descargado · disponible sin conexión" : nextReady ? "Listo para leer" : connection.online ? "Se cargará online" : "No descargado"}</span>
               </span>
             </span>
             <span class="flex h-[52px] items-center justify-center gap-2 rounded-full bg-accent font-bold text-on-accent">
               Seguir leyendo <Icon name="arrowRight" size={18} stroke={2.4} />
             </span>
           </button>
-          {#if !connection.online && !nextIsDownloaded}
+          {#if !connection.online && !nextIsDownloaded && !nextReady}
             <p class="text-center text-xs text-muted">Sin conexión y el siguiente no está descargado.</p>
           {/if}
         {:else}
