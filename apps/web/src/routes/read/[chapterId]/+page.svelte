@@ -13,6 +13,7 @@
   import {
     backgroundColor,
     readerSettings,
+    rememberAutoMode,
     resolveMode,
     seriesMode,
     setSeriesMode,
@@ -52,7 +53,13 @@
     try {
       const d = await api.chapterPages(id);
       autoMode = seriesMode(d.seriesId) === null && readerSettings.defaultMode === "auto";
-      mode = resolveMode(d.seriesId, d.genres);
+      // The server often knows the page shapes already: decide now instead of after images load.
+      const known = (d.ratios ?? []).filter((r): r is number => r !== null).slice(0, 5);
+      mode = resolveMode(d.seriesId, d.genres, known);
+      if (autoMode && known.length >= Math.min(3, d.pages.length)) {
+        autoMode = false;
+        rememberAutoMode(d.seriesId, mode);
+      }
       current = d.resumePage ?? 0;
       offset = d.resumeOffset ?? 0;
       data = d;
@@ -69,6 +76,7 @@
     if (ratios.size < Math.min(3, data.pages.length)) return;
     autoMode = false;
     const next = resolveMode(data.seriesId, data.genres, [...ratios.values()]);
+    rememberAutoMode(data.seriesId, next);
     if (next !== mode && current === 0) mode = next;
   }
 
