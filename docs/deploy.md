@@ -43,5 +43,15 @@ Then re-run `python3 test-sources.py` to confirm the 18 regular sources still wo
 and add the ones from `warp-sources.txt` that pass to `extensions.txt`.
 Disable: `sudo rm .env && sudo docker compose up -d --remove-orphans`.
 
+**Watchdog.** When the WARP tunnel drops, the container turns `unhealthy` but Docker doesn't
+restart it, and every Suwayomi source fails with `SOCKS: Host unreachable`. A root cron job checks
+the tunnel every 5 minutes and, after two misses 30 s apart, restarts `warp`, then `suwayomi` and
+`flaresolverr`:
+```
+sudo bash /home/deploy/hanyo/deploy/install-warp-watchdog.sh
+sudo tail /var/log/hanyo-warp-watchdog.log      # restarts it made
+```
+It does nothing while WARP isn't enabled in `deploy/.env`.
+
 ## Resource budget (8 GB VPS)
 Suwayomi ≤ 1.6 GB, FlareSolverr ≤ 1 GB, hanyo-api ≤ 512 MB, image cache ≤ 15 GB of disk.
